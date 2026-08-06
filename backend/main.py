@@ -27,8 +27,8 @@ app.add_middleware(CORSMiddleware,
 def read_root():
     return {"message": "Welcome to Mahadev Fast Food API!"}
 
-@app.get("/api/health")
-def health():
-    return{"message": "Welcome to the Health Route. Every thing is working fine."}
+from routes import orders
+
+app.include_router(orders.router)
 
 
