@@ -25,15 +25,16 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
   };
 
   useEffect(() => {
-    // Determine initial step based on saved status
+    // Determine step based on backend order status
     let initialStep = 1;
     let initialPercent = 25;
+
     if (orderDetails?.status === 'Preparing') {
       initialStep = 2;
       initialPercent = 50;
     } else if (orderDetails?.status === 'Out for Delivery') {
       initialStep = 3;
-      initialPercent = 80;
+      initialPercent = 75;
     } else if (orderDetails?.status === 'Delivered') {
       initialStep = 4;
       initialPercent = 100;
@@ -41,33 +42,6 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
 
     setCurrentStep(initialStep);
     setProgressPercent(initialPercent);
-
-    // Only run timers if order is not already delivered
-    if (initialStep < 4) {
-      const timer1 = setTimeout(() => {
-        setCurrentStep(2);
-        setProgressPercent(50);
-        updateOrderStatusInStorage('Preparing');
-      }, 4000); // 4s -> Preparing
-
-      const timer2 = setTimeout(() => {
-        setCurrentStep(3);
-        setProgressPercent(80);
-        updateOrderStatusInStorage('Out for Delivery');
-      }, 9500); // 9.5s -> Out for Delivery
-
-      const timer3 = setTimeout(() => {
-        setCurrentStep(4);
-        setProgressPercent(100);
-        updateOrderStatusInStorage('Delivered');
-      }, 15000); // 15s -> Delivered
-
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-      };
-    }
   }, [orderDetails]);
 
   if (!orderDetails) {

@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -85,10 +85,14 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
     )
 
 
-# 2. Get All Orders (GET /api/orders)
+# 2. Get Orders (GET /api/orders?phone=...)
 @router.get("/", response_model=List[schemas.OrderResponse])
-def get_all_orders(db: Session = Depends(get_db)):
-    orders = db.query(models.Order).order_by(models.Order.created_at.desc()).all()
+def get_all_orders(phone: Optional[str] = Query(None, description="Optional customer phone number to filter orders"), db: Session = Depends(get_db)):
+    query = db.query(models.Order)
+    if phone:
+        query = query.filter(models.Order.customer_phone == phone)
+    
+    orders = query.order_by(models.Order.created_at.desc()).all()
     
     response_list = []
     for order in orders:

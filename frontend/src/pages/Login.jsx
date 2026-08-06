@@ -34,16 +34,21 @@ export default function Login({ onLoginSuccess }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim()) return setError('Please enter your name.');
-    if (!phone.trim() || phone.length < 10) return setError('Please enter a valid 10-digit mobile number.');
+    const phoneRegex = /^\d{10}$/;
+
+    if (!name.trim()) return setError('Please enter your full name.');
+    if (!phone.trim()) return setError('Please enter your mobile phone number.');
+    if (!phoneRegex.test(phone.trim())) return setError('Please enter a valid 10-digit mobile number.');
     if (!address.trim()) return setError('Please enter your delivery address.');
 
+    setError('');
+
     const userDetails = {
-      name,
-      phone,
-      address,
-      lat: gpsLocation?.lat || 21.5222,
-      lng: gpsLocation?.lng || 70.4579
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      lat: gpsLocation?.lat,
+      lng: gpsLocation?.lng,
     };
 
     localStorage.setItem('mahadev_customer_details', JSON.stringify(userDetails));

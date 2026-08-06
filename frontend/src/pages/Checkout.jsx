@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, MapPin, CreditCard, Banknote, ShieldCheck, ShoppingBag, ArrowRight, CheckCircle2, MessageSquare } from 'lucide-react';
+import { createOrder } from '../services/api';
 
 export default function Checkout({ user, cartItems, onBackToMenu, onOrderSuccess }) {
   const [paymentMethod, setPaymentMethod] = useState('cod');
@@ -12,29 +13,54 @@ export default function Checkout({ user, cartItems, onBackToMenu, onOrderSuccess
   const platformCharge = 5;
   const grandTotal = itemTotal + deliveryFee + platformCharge;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setIsSubmitting(true);
-    // Simulate order placement delay
-    setTimeout(() => {
-      const orderPayload = {
-        orderId: `MHF-${Math.floor(100000 + Math.random() * 900000)}`,
-        items: cartItems,
-        customer: user,
-        cookingInstructions: cookingInstructions.trim(),
-        paymentMethod,
-        billBreakdown: {
-          itemTotal,
-          deliveryFee,
-          platformCharge,
-          grandTotal,
-        },
-        orderTime: new Date().toISOString(),
-        status: 'Placed',
-      };
 
+    const generatedOrderId = `MHF-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const orderPayload = {
+      orderId: generatedOrderId,
+      customer: {
+        name: user?.name,
+        phone: user?.phone,
+        address: user?.address,
+      },
+      items: cartItems.map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      cookingInstructions: cookingInstructions.trim(),
+      paymentMethod: paymentMethod,
+      billBreakdown: {
+        itemTotal,
+        deliveryFee,
+        platformCharge,
+        grandTotal,
+      },
+      status: 'Placed',
+    };
+
+    try {
+      const createdOrder = await createOrder(orderPayload);
       setIsSubmitting(false);
-      onOrderSuccess(orderPayload);
-    }, 1200);
+      onOrderSuccess(createdOrder);
+    } catch (error) {
+      setIsSubmitting(false);
+      const detail = error.response?.data?.detail;
+      let errorMsg = 'Failed to place order.';
+
+      if (typeof detail === 'string') {
+        errorMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errorMsg = detail.map((err) => `${err.loc.join('.')}: ${err.msg}`).join('\n');
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+
+      alert(errorMsg);
+    }
   };
 
   if (!cartItems || cartItems.length === 0) {

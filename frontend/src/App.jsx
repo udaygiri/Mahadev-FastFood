@@ -6,6 +6,7 @@ import OrderSuccess from './pages/OrderSuccess';
 import OrdersList from './pages/OrdersList';
 import Profile from './pages/Profile';
 import BottomNav from './components/BottomNav';
+import { fetchOrders } from './services/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -18,21 +19,35 @@ export default function App() {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('mahadev_customer_details');
-    if (savedUser) {
+    if (savedUser && !user) {
       setUser(JSON.parse(savedUser));
     }
-
-    const savedOrders = localStorage.getItem('mahadev_orders_list');
-    if (savedOrders) {
-      const parsedOrders = JSON.parse(savedOrders);
-      setOrdersList(parsedOrders);
-      if (parsedOrders.length > 0) {
-        setSelectedOrder(parsedOrders[0]);
-      }
-    }
-
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (!user?.phone) return;
+
+    const loadOrders = () => {
+      fetchOrders(user.phone)
+        .then((data) => {
+          setOrdersList(data);
+          if (data.length > 0) {
+            setSelectedOrder((prev) => {
+              if (!prev) return data[0];
+              const updated = data.find((o) => o.orderId === prev.orderId);
+              return updated || data[0];
+            });
+          }
+        })
+        .catch((err) => console.error('Failed to fetch orders:', err));
+    };
+
+    loadOrders();
+    const intervalId = setInterval(loadOrders, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [user?.phone]);
 
   const handleGoToCheckout = (cartItems) => {
     setActiveCartItems(cartItems);
@@ -48,9 +63,7 @@ export default function App() {
 
   const handleOrderSuccess = (newOrder) => {
     console.log('Order Placed Successfully:', newOrder);
-    const updatedOrders = [newOrder, ...ordersList];
-    setOrdersList(updatedOrders);
-    localStorage.setItem('mahadev_orders_list', JSON.stringify(updatedOrders));
+    setOrdersList((prevOrders) => [newOrder, ...prevOrders]);
     
     setActiveCartItems([]);
     setSelectedOrder(newOrder);
@@ -135,7 +148,6 @@ export default function App() {
             onUpdateUser={handleUpdateUser}
             onLogout={() => {
               localStorage.removeItem('mahadev_customer_details');
-              localStorage.removeItem('mahadev_orders_list');
               setOrdersList([]);
               setSelectedOrder(null);
               setUser(null);
@@ -150,7 +162,6 @@ export default function App() {
             activeOrder={ordersList[0]}
             onLogout={() => {
               localStorage.removeItem('mahadev_customer_details');
-              localStorage.removeItem('mahadev_orders_list');
               setOrdersList([]);
               setSelectedOrder(null);
               setUser(null);
