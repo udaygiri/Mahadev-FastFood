@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  
+  /* Modern Fast Food Warm Appetite Palette */
+  --color-brand-primary: #D9232D;      /* Deep Rich Saffron Red */
+  --color-brand-accent: #118C4F;       /* Warm Fresh Green for Pure Veg */
+  --color-brand-amber: #D97706;        /* Warm Cheese/Bestseller Amber */
+  --color-dark-slate: #1E2022;        /* Premium Charcoal Text */
+  --color-muted-gray: #6B7280;        /* Subtitle Gray */
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #F8F9FA;
+  color: var(--color-dark-slate);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}

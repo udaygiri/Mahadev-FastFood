@@ -1,0 +1,268 @@
+.app-container {
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 20px rgba(0,0,0,0.05);
+  padding-bottom: 90px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  background-color: #FFFFFF;
+  z-index: 100;
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px;
+}
+
+.brand-title {
+  font-size: 1.35rem;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.search-box {
+  margin-top: 12px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-subtle);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+  background-color: #FFFFFF;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--border-color);
+  gap: 10px;
+}
+
+.categories-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.categories-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.category-pill.active {
+  background-color: var(--dark-slate);
+  color: #FFFFFF;
+}
+
+.veg-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menu-section {
+  padding: 16px;
+}
+
+.section-heading {
+  font-size: 1.1rem;
+  margin-bottom: 14px;
+  color: var(--dark-slate);
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.food-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.food-info {
+  flex: 1;
+}
+
+.food-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.veg-icon {
+  font-size: 0.75rem;
+}
+
+.bestseller-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #EE9C00;
+  background-color: #FFF9E6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.food-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--dark-slate);
+  margin-bottom: 4px;
+}
+
+.food-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--dark-slate);
+  margin-bottom: 6px;
+}
+
+.food-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.food-image-box {
+  position: relative;
+  width: 110px;
+  height: 100px;
+  flex-shrink: 0;
+}
+
+.food-img {
+  width: 100%;
+  height: 85px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.add-btn-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.add-btn {
+  background-color: #FFFFFF;
+  color: var(--veg-green);
+  border: 1px solid var(--border-color);
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 6px 22px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.add-btn:hover {
+  background-color: #F8FAF8;
+}
+
+.quantity-stepper {
+  display: flex;
+  align-items: center;
+  background-color: var(--veg-green);
+  color: #FFFFFF;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.quantity-stepper button {
+  background: none;
+  color: #FFFFFF;
+  font-weight: 800;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+.quantity-stepper span {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0 4px;
+}
+
+.floating-cart-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 568px;
+  background-color: var(--veg-green);
+  color: #FFFFFF;
+  padding: 12px 18px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 16px rgba(27, 166, 114, 0.4);
+  z-index: 200;
+}
+
+.cart-summary {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.9;
+  letter-spacing: 0.5px;
+}
+
+.cart-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.view-cart-btn {
+  background: none;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
