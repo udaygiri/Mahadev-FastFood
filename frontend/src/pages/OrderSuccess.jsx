@@ -1,21 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft } from 'lucide-react';
 
-export default function OrderSuccess({ orderDetails, onBackToMenu, onGoToMenu }) {
+export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBackToMenu, onGoToMenu }) {
   const [currentStep, setCurrentStep] = useState(1); // 1: Placed, 2: Preparing, 3: Out for Delivery, 4: Delivered
+  const [progressPercent, setProgressPercent] = useState(25);
+
+  const updateOrderStatusInStorage = (newStatus) => {
+    if (!orderDetails?.orderId) return;
+    try {
+      const savedOrders = localStorage.getItem('mahadev_orders_list');
+      if (savedOrders) {
+        const parsedOrders = JSON.parse(savedOrders);
+        const updatedOrders = parsedOrders.map((o) =>
+          o.orderId === orderDetails.orderId ? { ...o, status: newStatus } : o
+        );
+        localStorage.setItem('mahadev_orders_list', JSON.stringify(updatedOrders));
+      }
+      if (onUpdateOrderStatus) {
+        onUpdateOrderStatus(orderDetails.orderId, newStatus);
+      }
+    } catch (err) {
+      console.error('Error updating order status in storage:', err);
+    }
+  };
 
   useEffect(() => {
-    // Reset step
-    setCurrentStep(1);
+    // Determine initial step based on saved status
+    let initialStep = 1;
+    let initialPercent = 25;
+    if (orderDetails?.status === 'Preparing') {
+      initialStep = 2;
+      initialPercent = 50;
+    } else if (orderDetails?.status === 'Out for Delivery') {
+      initialStep = 3;
+      initialPercent = 80;
+    } else if (orderDetails?.status === 'Delivered') {
+      initialStep = 4;
+      initialPercent = 100;
+    }
 
-    // Live status updates
-    const timer1 = setTimeout(() => setCurrentStep(2), 4000);  // 4s -> Preparing
-    const timer2 = setTimeout(() => setCurrentStep(3), 10000); // 10s -> Out for Delivery
+    setCurrentStep(initialStep);
+    setProgressPercent(initialPercent);
 
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    // Only run timers if order is not already delivered
+    if (initialStep < 4) {
+      const timer1 = setTimeout(() => {
+        setCurrentStep(2);
+        setProgressPercent(50);
+        updateOrderStatusInStorage('Preparing');
+      }, 4000); // 4s -> Preparing
+
+      const timer2 = setTimeout(() => {
+        setCurrentStep(3);
+        setProgressPercent(80);
+        updateOrderStatusInStorage('Out for Delivery');
+      }, 9500); // 9.5s -> Out for Delivery
+
+      const timer3 = setTimeout(() => {
+        setCurrentStep(4);
+        setProgressPercent(100);
+        updateOrderStatusInStorage('Delivered');
+      }, 15000); // 15s -> Delivered
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+      };
+    }
   }, [orderDetails]);
 
   if (!orderDetails) {
@@ -34,10 +86,10 @@ export default function OrderSuccess({ orderDetails, onBackToMenu, onGoToMenu })
   }
 
   const trackingSteps = [
-    { step: 1, title: 'Order Placed', desc: 'Received by kitchen' },
-    { step: 2, title: 'Preparing Food', desc: 'Fresh & hot in kitchen' },
-    { step: 3, title: 'Out for Delivery', desc: 'Driver on the way' },
-    { step: 4, title: 'Delivered', desc: 'Enjoy your food!' },
+    { step: 1, title: 'Order Placed', desc: 'Received by kitchen', time: 'Just now' },
+    { step: 2, title: 'Preparing Food', desc: 'Fresh & hot in kitchen', time: 'In progress' },
+    { step: 3, title: 'Out for Delivery', desc: 'Driver on the way', time: 'Approx 15 mins' },
+    { step: 4, title: 'Delivered', desc: 'Enjoy your food!', time: 'Completed' },
   ];
 
   return (
@@ -78,21 +130,39 @@ export default function OrderSuccess({ orderDetails, onBackToMenu, onGoToMenu })
       {/* Main Content Area */}
       <main className="max-w-xl mx-auto w-full px-4 pt-5 space-y-4 flex-1">
         
-        {/* Estimated Arrival Card */}
-        <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-100 text-brand-accent rounded-xl">
-              <Clock className="w-6 h-6" />
+        {/* Estimated Arrival Card with Progress Bar */}
+        <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-100 text-brand-accent rounded-xl">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-muted-gray uppercase tracking-wider">ESTIMATED DELIVERY</p>
+                <p className="font-heading font-extrabold text-lg sm:text-xl text-dark-slate">
+                  {currentStep === 4 ? 'Arrived!' : currentStep === 3 ? '10 - 15 Mins' : '20 - 25 Mins'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-gray uppercase tracking-wider">ESTIMATED DELIVERY</p>
-              <p className="font-heading font-extrabold text-lg sm:text-xl text-dark-slate">25 - 30 Mins</p>
+            
+            <span className={`text-xs font-extrabold px-3 py-1.5 rounded-full border transition-all ${
+              currentStep === 4 
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                : 'bg-emerald-50 text-brand-accent border-emerald-200 animate-pulse'
+            }`}>
+              {currentStep === 4 ? '✓ Delivered' : 'Live Tracking'}
+            </span>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="pt-1">
+            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-gray-200/60">
+              <div
+                className="bg-brand-accent h-full rounded-full transition-all duration-700 ease-out shadow-xs"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
             </div>
           </div>
-          
-          <span className="text-xs font-extrabold bg-emerald-50 text-brand-accent px-3 py-1.5 rounded-full border border-emerald-200 animate-pulse">
-            Live Track
-          </span>
         </div>
 
         {/* Live Timeline Tracker */}
@@ -191,20 +261,18 @@ export default function OrderSuccess({ orderDetails, onBackToMenu, onGoToMenu })
           )}
         </div>
 
-      </main>
-
-      {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 shadow-lg">
-        <div className="max-w-xl mx-auto">
+        {/* Back to Home Menu Action Button */}
+        <div className="pt-3 pb-6">
           <button
-            onClick={onBackToMenu}
+            onClick={onGoToMenu || onBackToMenu}
             className="w-full py-3.5 bg-brand-primary hover:bg-red-700 text-white rounded-xl font-extrabold text-sm shadow-md shadow-red-200 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
           >
+            <ArrowLeft className="w-4 h-4" />
             <span>Back to Home Menu</span>
-            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-      </div>
+
+      </main>
 
     </div>
   );

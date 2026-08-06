@@ -59,6 +59,12 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    setOrdersList((prevOrders) =>
+      prevOrders.map((o) => (o.orderId === orderId ? { ...o, status: newStatus } : o))
+    );
+  };
+
   const handleUpdateUser = (updatedDetails) => {
     setUser(updatedDetails);
     localStorage.setItem('mahadev_customer_details', JSON.stringify(updatedDetails));
@@ -114,6 +120,7 @@ export default function App() {
         {currentView === 'order_details' && (
           <OrderSuccess
             orderDetails={selectedOrder}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
             onGoToMenu={handleBackToMenu}
             onBackToMenu={() => {
               setCurrentView('orders_list');
