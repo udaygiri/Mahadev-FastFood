@@ -73,8 +73,23 @@ export default function AdminDashboard({ onLogout }) {
   useEffect(() => {
     loadAllOrders();
     loadMenu();
-    const interval = setInterval(loadAllOrders, 4000);
-    return () => clearInterval(interval);
+
+    // ⚡ REALTIME WEBSOCKET SUBSCRIPTION (Zero Polling)
+    const ordersSubscription = supabase
+      .channel('admin-orders-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('⚡ Realtime Order Update Received:', payload);
+          loadAllOrders(); // Refresh orders instantly on any INSERT, UPDATE, or DELETE
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersSubscription);
+    };
   }, []);
 
   const handleStatusChange = async (orderId, newStatus) => {

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
 
 export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBackToMenu, onGoToMenu }) {
   const [currentStep, setCurrentStep] = useState(1); // 1: Placed, 2: Preparing, 3: Out for Delivery, 4: Delivered
   const [progressPercent, setProgressPercent] = useState(25);
+  const [liveStatus, setLiveStatus] = useState(orderDetails?.status || 'Placed');
 
   const updateOrderStatusInStorage = (newStatus) => {
     if (!orderDetails?.orderId) return;
@@ -24,25 +26,55 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
     }
   };
 
+  // ⚡ Supabase Realtime WebSocket listener for status updates on active order
   useEffect(() => {
-    // Determine step based on backend order status
+    if (!orderDetails?.orderId) return;
+
+    const channel = supabase
+      .channel(`order-tracker-${orderDetails.orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `order_id=eq.${orderDetails.orderId}`
+        },
+        (payload) => {
+          if (payload.new && payload.new.status) {
+            console.log('⚡ Live Order Status Changed:', payload.new.status);
+            setLiveStatus(payload.new.status);
+            updateOrderStatusInStorage(payload.new.status);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderDetails?.orderId]);
+
+  useEffect(() => {
+    // Determine step based on live order status
+    const statusToUse = liveStatus || orderDetails?.status;
     let initialStep = 1;
     let initialPercent = 25;
 
-    if (orderDetails?.status === 'Preparing') {
+    if (statusToUse === 'Preparing') {
       initialStep = 2;
       initialPercent = 50;
-    } else if (orderDetails?.status === 'Out for Delivery') {
+    } else if (statusToUse === 'Out for Delivery') {
       initialStep = 3;
       initialPercent = 75;
-    } else if (orderDetails?.status === 'Delivered') {
+    } else if (statusToUse === 'Delivered') {
       initialStep = 4;
       initialPercent = 100;
     }
 
     setCurrentStep(initialStep);
     setProgressPercent(initialPercent);
-  }, [orderDetails]);
+  }, [liveStatus, orderDetails]);
 
   if (!orderDetails) {
     return (
