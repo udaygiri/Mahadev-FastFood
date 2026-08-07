@@ -35,11 +35,15 @@ class OrderCreate(BaseModel):
     paymentMethod: str = Field(default="cod", example="cod")
     billBreakdown: BillBreakdownSchema
     status: str = Field(default="Placed", example="Placed")
+    driver_name: Optional[str] = Field(default=None, example="Ramesh")
+    driver_phone: Optional[str] = Field(default=None, example="9876543210")
 
 
 # 5. Status Update Request Payload Schema (PATCH request)
 class OrderStatusUpdate(BaseModel):
-    status: str = Field(..., example="Preparing")
+    status: Optional[str] = Field(default=None, example="Preparing")
+    driver_name: Optional[str] = Field(default=None, example="Ramesh")
+    driver_phone: Optional[str] = Field(default=None, example="9876543210")
 
 
 # 6. Response Payload Schema (Outgoing response back to Frontend)

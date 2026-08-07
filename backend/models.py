@@ -19,6 +19,10 @@ class Order(Base):
     cooking_instructions = Column(String, nullable=True)
     payment_method = Column(String, default="cod") # 'cod' or 'online'
     status = Column(String, default="Placed") # 'Placed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'
+    
+    # Driver Assignment Details
+    driver_name = Column(String, nullable=True)
+    driver_phone = Column(String, nullable=True)
 
     # Bill Breakdown
     item_total = Column(Float, nullable=False)

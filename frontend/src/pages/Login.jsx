@@ -1,35 +1,18 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, User, Utensils, ArrowRight, Leaf } from 'lucide-react';
+import { MapPin, Phone, User, Utensils, ArrowRight, Leaf, Map } from 'lucide-react';
+import LocationPickerModal from '../components/LocationPickerModal';
 
 export default function Login({ onLoginSuccess }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [gpsLocation, setGpsLocation] = useState(null);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const handleDetectGPS = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser.');
-      return;
-    }
-    setIsDetectingLocation(true);
-    setError('');
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setGpsLocation({ lat: latitude, lng: longitude });
-        setAddress(prev => prev || `GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-        setIsDetectingLocation(false);
-      },
-      () => {
-        setIsDetectingLocation(false);
-        setError('Could not detect location. Please type your address manually.');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
+  const handleSaveLocationFromMap = ({ lat, lng, address: fetchedAddress }) => {
+    setGpsLocation({ lat, lng });
+    setAddress(fetchedAddress);
   };
 
   const handleSubmit = (e) => {
@@ -39,7 +22,7 @@ export default function Login({ onLoginSuccess }) {
     if (!name.trim()) return setError('Please enter your full name.');
     if (!phone.trim()) return setError('Please enter your mobile phone number.');
     if (!phoneRegex.test(phone.trim())) return setError('Please enter a valid 10-digit mobile number.');
-    if (!address.trim()) return setError('Please enter your delivery address.');
+    if (!address.trim()) return setError('Please select your delivery address from the map or enter manually.');
 
     setError('');
 
@@ -47,8 +30,8 @@ export default function Login({ onLoginSuccess }) {
       name: name.trim(),
       phone: phone.trim(),
       address: address.trim(),
-      lat: gpsLocation?.lat,
-      lng: gpsLocation?.lng,
+      lat: gpsLocation?.lat || 20.92044479,
+      lng: gpsLocation?.lng || 70.3604289,
     };
 
     localStorage.setItem('mahadev_customer_details', JSON.stringify(userDetails));
@@ -116,15 +99,16 @@ export default function Login({ onLoginSuccess }) {
               </label>
               <button 
                 type="button"
-                onClick={handleDetectGPS}
-                className="text-[11px] font-bold text-brand-accent hover:underline flex items-center gap-1"
+                onClick={() => setIsMapModalOpen(true)}
+                className="text-[11px] font-extrabold text-brand-primary hover:underline flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100 cursor-pointer"
               >
-                {isDetectingLocation ? '📍 Detecting...' : '📍 Auto-detect GPS'}
+                <Map className="w-3 h-3 text-brand-primary" /> Select on Map
               </button>
             </div>
             <textarea 
               rows="2"
-              placeholder="House/Flat No, Building, Street, Area Name..." 
+              required
+              placeholder="Select on map or enter House/Flat No, Building, Street..." 
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:border-brand-primary focus:bg-white outline-none transition-all resize-none"
@@ -147,6 +131,15 @@ export default function Login({ onLoginSuccess }) {
         </form>
 
       </div>
+
+      {/* Map Location Picker Modal */}
+      <LocationPickerModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        initialLocation={gpsLocation}
+        onSaveLocation={handleSaveLocationFromMap}
+      />
     </div>
   );
 }
+

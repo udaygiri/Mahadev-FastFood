@@ -28,12 +28,16 @@ export const fetchOrders = async (phone) => {
 };
 
 /**
- * Update order status by order ID
- * @param {number} orderId 
+ * Update order status by order ID (accepts optional driver_name and driver_phone)
+ * @param {string} orderId 
  * @param {string} status 
+ * @param {Object} [extraData] 
  */
-export const updateOrderStatus = async (orderId, status) => {
-  const response = await api.patch(`/orders/${orderId}/status`, { status });
+export const updateOrderStatus = async (orderId, status, extraData = {}) => {
+  const response = await api.patch(`/orders/${orderId}/status`, {
+    status,
+    ...extraData
+  });
   return response.data;
 };
 

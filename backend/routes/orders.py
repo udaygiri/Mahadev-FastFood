@@ -81,6 +81,8 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
             grandTotal=new_order.grand_total
         ),
         status=new_order.status,
+        driver_name=new_order.driver_name,
+        driver_phone=new_order.driver_phone,
         created_at=new_order.created_at
     )
 
@@ -122,6 +124,8 @@ def get_all_orders(phone: Optional[str] = Query(None, description="Optional cust
                     grandTotal=order.grand_total
                 ),
                 status=order.status,
+                driver_name=order.driver_name,
+                driver_phone=order.driver_phone,
                 created_at=order.created_at
             )
         )
@@ -142,7 +146,13 @@ def update_order_status(
             detail=f"Order '{order_id}' not found"
         )
     
-    order.status = status_data.status
+    if status_data.status:
+        order.status = status_data.status
+    if status_data.driver_name:
+        order.driver_name = status_data.driver_name
+    if status_data.driver_phone:
+        order.driver_phone = status_data.driver_phone
+
     db.commit()
     db.refresh(order)
 
@@ -171,6 +181,8 @@ def update_order_status(
             grandTotal=order.grand_total
         ),
         status=order.status,
+        driver_name=order.driver_name,
+        driver_phone=order.driver_phone,
         created_at=order.created_at
     )
 

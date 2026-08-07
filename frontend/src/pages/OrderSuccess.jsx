@@ -1,32 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft, Truck, User } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { supabase } from '../services/supabaseClient';
+
+// Custom Leaflet Markers
+import markerIconPng from 'leaflet/dist/images/marker-icon.png';
+import markerShadowPng from 'leaflet/dist/images/marker-shadow.png';
+
+const homeIcon = L.icon({
+  iconUrl: markerIconPng,
+  shadowUrl: markerShadowPng,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+// Exact Shop Coordinates (Mahadev Fast Food)
+const KITCHEN_LOCATION = { lat: 20.92044479, lng: 70.3604289 };
 
 export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBackToMenu, onGoToMenu }) {
   const [currentStep, setCurrentStep] = useState(1); // 1: Placed, 2: Preparing, 3: Out for Delivery, 4: Delivered
   const [progressPercent, setProgressPercent] = useState(25);
-  const [liveStatus, setLiveStatus] = useState(orderDetails?.status || 'Placed');
+  const [liveOrder, setLiveOrder] = useState(orderDetails);
 
-  const updateOrderStatusInStorage = (newStatus) => {
-    if (!orderDetails?.orderId) return;
+  const updateOrderStatusInStorage = (updatedOrder) => {
+    if (!updatedOrder?.orderId) return;
     try {
       const savedOrders = localStorage.getItem('mahadev_orders_list');
       if (savedOrders) {
         const parsedOrders = JSON.parse(savedOrders);
-        const updatedOrders = parsedOrders.map((o) =>
-          o.orderId === orderDetails.orderId ? { ...o, status: newStatus } : o
+        const updatedList = parsedOrders.map((o) =>
+          o.orderId === updatedOrder.orderId ? { ...o, ...updatedOrder } : o
         );
-        localStorage.setItem('mahadev_orders_list', JSON.stringify(updatedOrders));
+        localStorage.setItem('mahadev_orders_list', JSON.stringify(updatedList));
       }
       if (onUpdateOrderStatus) {
-        onUpdateOrderStatus(orderDetails.orderId, newStatus);
+        onUpdateOrderStatus(updatedOrder.orderId, updatedOrder.status);
       }
     } catch (err) {
       console.error('Error updating order status in storage:', err);
     }
   };
 
-  // ⚡ Supabase Realtime WebSocket listener for status updates on active order
+  // ⚡ Supabase Realtime WebSocket listener for status & driver updates on active order
   useEffect(() => {
     if (!orderDetails?.orderId) return;
 
@@ -41,10 +58,16 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
           filter: `order_id=eq.${orderDetails.orderId}`
         },
         (payload) => {
-          if (payload.new && payload.new.status) {
-            console.log('⚡ Live Order Status Changed:', payload.new.status);
-            setLiveStatus(payload.new.status);
-            updateOrderStatusInStorage(payload.new.status);
+          if (payload.new) {
+            console.log('⚡ Live Order Payload Changed:', payload.new);
+            const updated = {
+              ...liveOrder,
+              status: payload.new.status,
+              driver_name: payload.new.driver_name,
+              driver_phone: payload.new.driver_phone
+            };
+            setLiveOrder(updated);
+            updateOrderStatusInStorage(updated);
           }
         }
       )
@@ -57,7 +80,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
 
   useEffect(() => {
     // Determine step based on live order status
-    const statusToUse = liveStatus || orderDetails?.status;
+    const statusToUse = liveOrder?.status || orderDetails?.status;
     let initialStep = 1;
     let initialPercent = 25;
 
@@ -74,7 +97,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
 
     setCurrentStep(initialStep);
     setProgressPercent(initialPercent);
-  }, [liveStatus, orderDetails]);
+  }, [liveOrder, orderDetails]);
 
   if (!orderDetails) {
     return (
@@ -91,10 +114,19 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
     );
   }
 
+  const activeOrder = liveOrder || orderDetails;
+
+  // Customer Coordinates (Fallback to default if not in customer details)
+  const savedCustomer = JSON.parse(localStorage.getItem('mahadev_customer_details') || '{}');
+  const customerLocation = {
+    lat: savedCustomer.lat || 20.9300,
+    lng: savedCustomer.lng || 70.3700
+  };
+
   const trackingSteps = [
     { step: 1, title: 'Order Placed', desc: 'Received by kitchen', time: 'Just now' },
     { step: 2, title: 'Preparing Food', desc: 'Fresh & hot in kitchen', time: 'In progress' },
-    { step: 3, title: 'Out for Delivery', desc: 'Driver on the way', time: 'Approx 15 mins' },
+    { step: 3, title: 'Out for Delivery', desc: activeOrder.driver_name ? `Picked up by ${activeOrder.driver_name}` : 'Driver on the way', time: 'Approx 15 mins' },
     { step: 4, title: 'Delivered', desc: 'Enjoy your food!', time: 'Completed' },
   ];
 
@@ -112,7 +144,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
         </button>
 
         <span className="text-xs font-bold text-emerald-100 font-mono">
-          #{orderDetails.orderId}
+          #{activeOrder.orderId}
         </span>
       </div>
 
@@ -129,7 +161,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
         
         <div className="inline-flex items-center gap-1.5 bg-black/20 text-white text-xs font-mono px-3 py-1 rounded-full backdrop-blur-xs">
           <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-          <span>ORDER #{orderDetails.orderId}</span>
+          <span>ORDER #{activeOrder.orderId}</span>
         </div>
       </header>
 
@@ -168,6 +200,91 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
                 style={{ width: `${progressPercent}%` }}
               ></div>
             </div>
+          </div>
+        </div>
+
+        {/* ASSIGNED DRIVER CONTACT CARD (When Driver Picks Up Order) */}
+        {activeOrder.driver_name && (
+          <div className="bg-purple-50 rounded-2xl p-4 border border-purple-200 shadow-xs flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-600 text-white rounded-xl flex items-center justify-center font-bold shadow-xs">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-extrabold text-purple-700 uppercase tracking-wider">Assigned Delivery Driver</p>
+                <p className="font-heading font-extrabold text-sm text-dark-slate">{activeOrder.driver_name}</p>
+                <p className="text-[11px] text-gray-500 font-medium">On the way with your food</p>
+              </div>
+            </div>
+
+            {activeOrder.driver_phone && (
+              <a
+                href={`tel:${activeOrder.driver_phone}`}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call Driver</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* EMBEDDED LIVE DELIVERY TRACKING MAP (Static View) */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs space-y-2">
+          <div className="px-4 pt-3 flex items-center justify-between">
+            <span className="font-bold text-xs text-dark-slate flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-brand-primary" /> Live Delivery Route Map
+            </span>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              Kitchen ➔ Your House
+            </span>
+          </div>
+
+          <div className="h-56 w-full relative z-0">
+            <MapContainer
+              center={[(KITCHEN_LOCATION.lat + customerLocation.lat) / 2, (KITCHEN_LOCATION.lng + customerLocation.lng) / 2]}
+              zoom={13}
+              scrollWheelZoom={false}
+              dragging={false}
+              touchZoom={false}
+              doubleClickZoom={false}
+              zoomControl={false}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; OpenStreetMap'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              
+              {/* Kitchen Marker */}
+              <Marker position={[KITCHEN_LOCATION.lat, KITCHEN_LOCATION.lng]} icon={homeIcon}>
+                <Popup>
+                  <div className="text-xs font-bold text-center">
+                    🍔 Mahadev Fast Food Kitchen
+                  </div>
+                </Popup>
+              </Marker>
+
+              {/* Customer House Marker */}
+              <Marker position={[customerLocation.lat, customerLocation.lng]} icon={homeIcon}>
+                <Popup>
+                  <div className="text-xs font-bold text-center">
+                    🏡 Your Delivery Destination
+                  </div>
+                </Popup>
+              </Marker>
+
+              {/* Delivery Route Polyline Path */}
+              <Polyline
+                positions={[
+                  [KITCHEN_LOCATION.lat, KITCHEN_LOCATION.lng],
+                  [customerLocation.lat, customerLocation.lng]
+                ]}
+                color="#e11d48"
+                weight={4}
+                dashArray="6, 8"
+              />
+            </MapContainer>
           </div>
         </div>
 
