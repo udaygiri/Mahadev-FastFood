@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft, Truck, User } from 'lucide-react';
+import { CheckCircle2, Clock, MapPin, Sparkles, ArrowRight, PhoneCall, Phone, ArrowLeft, Truck, User, XCircle, AlertTriangle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../services/supabaseClient';
+import { updateOrderStatus } from '../services/api';
 
 // Custom Leaflet Markers
 import markerIconPng from 'leaflet/dist/images/marker-icon.png';
@@ -31,6 +32,24 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
   const [progressPercent, setProgressPercent] = useState(25);
   const [liveOrder, setLiveOrder] = useState(orderDetails);
   const [driverLocation, setDriverLocation] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    if (!activeOrder?.orderId) return;
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+
+    setIsCancelling(true);
+    try {
+      await updateOrderStatus(activeOrder.orderId, 'Cancelled');
+      const updated = { ...activeOrder, status: 'Cancelled' };
+      setLiveOrder(updated);
+      updateOrderStatusInStorage(updated);
+    } catch (err) {
+      alert('Failed to cancel order.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const updateOrderStatusInStorage = (updatedOrder) => {
     if (!updatedOrder?.orderId) return;
@@ -107,7 +126,10 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
     let initialStep = 1;
     let initialPercent = 25;
 
-    if (statusToUse === 'Preparing') {
+    if (statusToUse === 'Cancelled') {
+      initialStep = 0;
+      initialPercent = 100;
+    } else if (statusToUse === 'Preparing') {
       initialStep = 2;
       initialPercent = 50;
     } else if (statusToUse === 'Out for Delivery') {
@@ -138,6 +160,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
   }
 
   const activeOrder = liveOrder || orderDetails;
+  const isCancelled = activeOrder.status === 'Cancelled';
 
   // Customer Coordinates (Strict read - NO fake defaults)
   const savedCustomer = JSON.parse(localStorage.getItem('mahadev_customer_details') || '{}');
@@ -188,30 +211,32 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
     <div className="min-h-screen bg-gray-50 font-sans text-dark-slate flex flex-col justify-between pb-28">
       
       {/* Top Header Bar */}
-      <div className="bg-emerald-600 text-white px-4 py-2.5 flex items-center justify-between z-40 border-b border-emerald-500">
+      <div className={`${isCancelled ? 'bg-red-600 border-red-500' : 'bg-emerald-600 border-emerald-500'} text-white px-4 py-2.5 flex items-center justify-between z-40 border-b`}>
         <button
           onClick={onGoToMenu || onBackToMenu}
-          className="p-1 rounded-xl text-emerald-100 hover:text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 text-xs font-extrabold cursor-pointer"
+          className={`p-1 rounded-xl text-white hover:bg-black/10 transition-colors flex items-center gap-1.5 text-xs font-extrabold cursor-pointer`}
         >
           <ArrowLeft className="w-4 h-4 text-white" />
           <span>Home</span>
         </button>
 
-        <span className="text-xs font-bold text-emerald-100 font-mono">
+        <span className="text-xs font-bold text-white/90 font-mono">
           #{activeOrder.orderId}
         </span>
       </div>
 
       {/* Hero Header */}
-      <header className="bg-gradient-to-b from-emerald-500 to-emerald-600 text-white p-6 pt-6 text-center space-y-3 relative shadow-md">
-        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto backdrop-blur-xs animate-bounce shadow-lg">
-          <CheckCircle2 className="w-10 h-10 text-white" />
+      <header className={`${isCancelled ? 'from-red-600 to-red-700' : 'from-emerald-500 to-emerald-600'} bg-gradient-to-b text-white p-6 pt-6 text-center space-y-3 relative shadow-md`}>
+        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto backdrop-blur-xs shadow-lg">
+          {isCancelled ? <XCircle className="w-10 h-10 text-white" /> : <CheckCircle2 className="w-10 h-10 text-white animate-bounce" />}
         </div>
         
         <h1 className="font-heading font-extrabold text-xl sm:text-2xl tracking-tight leading-tight">
-          Order Status
+          {isCancelled ? 'Order Cancelled' : 'Order Status'}
         </h1>
-        <p className="text-xs text-emerald-100 font-medium">Thank you for ordering from Mahadev Fast Food</p>
+        <p className="text-xs text-white/90 font-medium">
+          {isCancelled ? 'This order has been cancelled' : 'Thank you for ordering from Mahadev Fast Food'}
+        </p>
         
         <div className="inline-flex items-center gap-1.5 bg-black/20 text-white text-xs font-mono px-3 py-1 rounded-full backdrop-blur-xs">
           <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
@@ -223,26 +248,30 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
       <main className="max-w-xl mx-auto w-full px-4 pt-5 space-y-4 flex-1">
         
         {/* Estimated Arrival Card with Progress Bar */}
-        <div className="bg-white border border-emerald-200/80 rounded-2xl p-4 space-y-3 shadow-xs">
+        <div className={`bg-white border ${isCancelled ? 'border-red-200' : 'border-emerald-200/80'} rounded-2xl p-4 space-y-3 shadow-xs`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-100 text-brand-accent rounded-xl">
-                <Clock className="w-6 h-6" />
+              <div className={`p-3 ${isCancelled ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-brand-accent'} rounded-xl`}>
+                {isCancelled ? <XCircle className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
               </div>
               <div>
-                <p className="text-[10px] font-bold text-muted-gray uppercase tracking-wider">ESTIMATED DELIVERY</p>
+                <p className="text-[10px] font-bold text-muted-gray uppercase tracking-wider">
+                  {isCancelled ? 'ORDER STATUS' : 'ESTIMATED DELIVERY'}
+                </p>
                 <p className="font-heading font-extrabold text-lg sm:text-xl text-dark-slate">
-                  {currentStep === 4 ? 'Arrived!' : currentStep === 3 ? '10 - 15 Mins' : '20 - 25 Mins'}
+                  {isCancelled ? 'Cancelled' : currentStep === 4 ? 'Arrived!' : currentStep === 3 ? '10 - 15 Mins' : '20 - 25 Mins'}
                 </p>
               </div>
             </div>
             
             <span className={`text-xs font-extrabold px-3 py-1.5 rounded-full border transition-all ${
-              currentStep === 4 
+              isCancelled
+                ? 'bg-red-100 text-red-800 border-red-300'
+                : currentStep === 4 
                 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                 : 'bg-emerald-50 text-brand-accent border-emerald-200 animate-pulse'
             }`}>
-              {currentStep === 4 ? '✓ Delivered' : 'Live Tracking'}
+              {isCancelled ? '✕ Cancelled' : currentStep === 4 ? '✓ Delivered' : 'Live Tracking'}
             </span>
           </div>
 
@@ -250,7 +279,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
           <div className="pt-1">
             <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-gray-200/60">
               <div
-                className="bg-brand-accent h-full rounded-full transition-all duration-700 ease-out shadow-xs"
+                className={`${isCancelled ? 'bg-red-600' : 'bg-brand-accent'} h-full rounded-full transition-all duration-700 ease-out shadow-xs`}
                 style={{ width: `${progressPercent}%` }}
               ></div>
             </div>
@@ -363,40 +392,51 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-xs space-y-4">
           <h2 className="text-xs font-bold text-muted-gray uppercase tracking-wider border-b border-gray-100 pb-2.5 flex items-center justify-between">
             <span>Live Order Status</span>
-            <span className="text-brand-accent font-extrabold text-[11px]">Mahadev Kitchen</span>
+            <span className={isCancelled ? 'text-red-600 font-extrabold text-[11px]' : 'text-brand-accent font-extrabold text-[11px]'}>
+              {isCancelled ? 'Cancelled' : 'Mahadev Kitchen'}
+            </span>
           </h2>
 
-          <div className="space-y-5 relative pl-3 pt-1 before:absolute before:left-5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gray-200">
-            {trackingSteps.map((s) => {
-              const isActive = currentStep >= s.step;
-              const isCurrent = currentStep === s.step;
-              return (
-                <div key={s.step} className="flex items-start gap-4 relative z-10">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                    isActive 
-                      ? 'bg-brand-accent text-white ring-4 ring-emerald-100 shadow-xs' 
-                      : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {isActive ? '✓' : s.step}
-                  </div>
-
-                  <div className="flex-1 -mt-0.5">
-                    <div className="flex items-center justify-between">
-                      <p className={`text-xs sm:text-sm font-bold ${isCurrent ? 'text-brand-accent font-extrabold' : isActive ? 'text-dark-slate' : 'text-gray-400'}`}>
-                        {s.title}
-                      </p>
-                      {isCurrent && (
-                        <span className="text-[9px] font-extrabold bg-emerald-100 text-brand-accent px-2 py-0.5 rounded-full uppercase">
-                          In Progress
-                        </span>
-                      )}
+          {isCancelled ? (
+            <div className="p-4 bg-red-50 rounded-xl border border-red-200 text-center space-y-1">
+              <p className="font-extrabold text-sm text-red-900 flex items-center justify-center gap-1.5">
+                <XCircle className="w-4 h-4 text-red-600" /> Order Status: Cancelled
+              </p>
+              <p className="text-xs text-red-700">This order was cancelled and will not be prepared or delivered.</p>
+            </div>
+          ) : (
+            <div className="space-y-5 relative pl-3 pt-1 before:absolute before:left-5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gray-200">
+              {trackingSteps.map((s) => {
+                const isActive = currentStep >= s.step;
+                const isCurrent = currentStep === s.step;
+                return (
+                  <div key={s.step} className="flex items-start gap-4 relative z-10">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                      isActive 
+                        ? 'bg-brand-accent text-white ring-4 ring-emerald-100 shadow-xs' 
+                        : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {isActive ? '✓' : s.step}
                     </div>
-                    <p className="text-xs text-muted-gray mt-0.5">{s.desc}</p>
+
+                    <div className="flex-1 -mt-0.5">
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs sm:text-sm font-bold ${isCurrent ? 'text-brand-accent font-extrabold' : isActive ? 'text-dark-slate' : 'text-gray-400'}`}>
+                          {s.title}
+                        </p>
+                        {isCurrent && (
+                          <span className="text-[9px] font-extrabold bg-emerald-100 text-brand-accent px-2 py-0.5 rounded-full uppercase">
+                            In Progress
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-gray mt-0.5">{s.desc}</p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Contact Mahadev Kitchen Card */}
@@ -454,6 +494,52 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
             </div>
           )}
         </div>
+
+        {/* 🚫 CUSTOMER ORDER CANCELLATION FLOW CARD */}
+        {activeOrder.status === 'Cancelled' ? (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center space-y-2">
+            <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto font-bold">
+              ✕
+            </div>
+            <h3 className="text-sm font-extrabold text-red-900">Order Cancelled</h3>
+            <p className="text-xs text-red-700">This order has been successfully cancelled.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-dark-slate flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 text-red-500" /> Cancel Order Option
+              </span>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                activeOrder.status === 'Placed'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-gray-100 text-gray-500 border-gray-200'
+              }`}>
+                {activeOrder.status === 'Placed' ? 'Eligible for Cancel' : 'Cooking Started'}
+              </span>
+            </div>
+
+            {activeOrder.status === 'Placed' ? (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">
+                  Kitchen has not started cooking yet. You can cancel this order now.
+                </p>
+                <button
+                  disabled={isCancelling}
+                  onClick={handleCancelOrder}
+                  className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>{isCancelling ? 'Cancelling Order...' : 'Cancel This Order'}</span>
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 bg-gray-50 p-2.5 rounded-xl border border-gray-100 font-medium">
+                🔒 Kitchen is currently preparing your order. Orders cannot be cancelled once cooking starts.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Back to Home Menu Action Button */}
         <div className="pt-3 pb-6">

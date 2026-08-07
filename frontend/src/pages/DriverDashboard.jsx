@@ -3,6 +3,7 @@ import { Truck, CheckCircle2, CookingPot, Phone, MapPin, Navigation, User, LogOu
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import DriverNavigationMap from '../components/DriverNavigationMap';
+import { playOrderNotificationSound } from '../utils/audioNotification';
 
 export default function DriverDashboard() {
   const [driverInfo, setDriverInfo] = useState(() => {
@@ -49,7 +50,10 @@ export default function DriverDashboard() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
-        () => {
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.new?.status === 'Preparing') {
+            playOrderNotificationSound();
+          }
           loadOrders();
         }
       )
@@ -169,10 +173,13 @@ export default function DriverDashboard() {
     setIsNavigating(false);
   };
 
-  // Filter orders: Ready for pickup vs Picked up by driver
-  const availableOrders = orders.filter((o) => o.status === 'Preparing' || o.status === 'Placed');
+  // Filter orders: Ready for pickup vs Picked up by driver (Excludes Cancelled orders)
+  const availableOrders = orders.filter(
+    (o) => o.status !== 'Cancelled' && (o.status === 'Preparing' || o.status === 'Placed')
+  );
   const myActiveDeliveries = orders.filter(
     (o) =>
+      o.status !== 'Cancelled' &&
       o.status === 'Out for Delivery' &&
       (!o.driver_phone || o.driver_phone === driverInfo.phone || o.driver_name === driverInfo.name)
   );

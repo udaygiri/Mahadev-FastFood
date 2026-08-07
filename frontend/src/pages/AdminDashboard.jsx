@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link } from 'lucide-react';
 import { fetchOrders, updateOrderStatus, deleteOrder, getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../services/api';
 import { supabase } from '../services/supabaseClient';
+import { playOrderNotificationSound } from '../utils/audioNotification';
 
 const CATEGORIES = [
   'Vada Pav',
@@ -82,6 +83,9 @@ export default function AdminDashboard({ onLogout }) {
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
           console.log('⚡ Realtime Order Update Received:', payload);
+          if (payload.eventType === 'INSERT') {
+            playOrderNotificationSound();
+          }
           loadAllOrders(); // Refresh orders instantly on any INSERT, UPDATE, or DELETE
         }
       )
@@ -502,7 +506,7 @@ export default function AdminDashboard({ onLogout }) {
 
                         <div className="grid grid-cols-3 gap-1.5">
                           <button
-                            disabled={isUpdating || order.status === 'Preparing'}
+                            disabled={isUpdating || order.status === 'Preparing' || order.status === 'Cancelled'}
                             onClick={() => handleStatusChange(order.orderId, 'Preparing')}
                             className="py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                           >
@@ -511,7 +515,7 @@ export default function AdminDashboard({ onLogout }) {
                           </button>
 
                           <button
-                            disabled={isUpdating || order.status === 'Out for Delivery'}
+                            disabled={isUpdating || order.status === 'Out for Delivery' || order.status === 'Cancelled'}
                             onClick={() => handleStatusChange(order.orderId, 'Out for Delivery')}
                             className="py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                           >
@@ -520,7 +524,7 @@ export default function AdminDashboard({ onLogout }) {
                           </button>
 
                           <button
-                            disabled={isUpdating || order.status === 'Delivered'}
+                            disabled={isUpdating || order.status === 'Delivered' || order.status === 'Cancelled'}
                             onClick={() => handleStatusChange(order.orderId, 'Delivered')}
                             className="py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                           >
