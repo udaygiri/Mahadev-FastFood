@@ -37,4 +37,13 @@ export const updateOrderStatus = async (orderId, status) => {
   return response.data;
 };
 
+/**
+ * Delete an order by order ID
+ * @param {string} orderId 
+ */
+export const deleteOrder = async (orderId) => {
+  const response = await api.delete(`/orders/${orderId}`);
+  return response.data;
+};
+
 export default api;

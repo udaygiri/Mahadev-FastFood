@@ -173,3 +173,18 @@ def update_order_status(
         status=order.status,
         created_at=order.created_at
     )
+
+
+# 4. Delete an Order (DELETE /api/orders/{order_id})
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_order(order_id: str, db: Session = Depends(get_db)):
+    order = db.query(models.Order).filter(models.Order.order_id == order_id).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found"
+        )
+    
+    db.delete(order)
+    db.commit()
+    return None

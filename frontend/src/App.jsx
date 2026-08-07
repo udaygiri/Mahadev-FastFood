@@ -5,10 +5,17 @@ import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import OrdersList from './pages/OrdersList';
 import Profile from './pages/Profile';
+import AdminDashboard from './pages/AdminDashboard';
 import BottomNav from './components/BottomNav';
 import { fetchOrders } from './services/api';
 
 export default function App() {
+  // Check if current route is /admin
+  const isAdminRoute = window.location.pathname === '/admin';
+  if (isAdminRoute) {
+    return <AdminDashboard />;
+  }
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'checkout' | 'orders_list' | 'order_details' | 'profile'
