@@ -6,14 +6,39 @@ import OrderSuccess from './pages/OrderSuccess';
 import OrdersList from './pages/OrdersList';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 import BottomNav from './components/BottomNav';
 import { fetchOrders } from './services/api';
+import { supabase } from './services/supabaseClient';
 
 export default function App() {
-  // Check if current route is /admin
   const isAdminRoute = window.location.pathname === '/admin';
+  const [adminSession, setAdminSession] = useState(null);
+  const [checkingAdminAuth, setCheckingAdminAuth] = useState(isAdminRoute);
+
+  useEffect(() => {
+    if (!isAdminRoute) return;
+
+    // Check active Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAdminSession(session);
+      setCheckingAdminAuth(false);
+    });
+
+    // Listen for auth state changes (login / logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAdminSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isAdminRoute]);
+
   if (isAdminRoute) {
-    return <AdminDashboard />;
+    if (checkingAdminAuth) return null;
+    if (!adminSession) {
+      return <AdminLogin onLoginSuccess={(session) => setAdminSession(session)} />;
+    }
+    return <AdminDashboard onLogout={() => supabase.auth.signOut()} />;
   }
 
   const [user, setUser] = useState(null);
