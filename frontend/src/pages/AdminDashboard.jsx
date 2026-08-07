@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
+import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link } from 'lucide-react';
 import { fetchOrders, updateOrderStatus, deleteOrder, getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 
 const CATEGORIES = [
   'Vada Pav',
@@ -28,8 +29,12 @@ export default function AdminDashboard({ onLogout }) {
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [submittingDish, setSubmittingDish] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDish, setEditingDish] = useState(null); // null when adding new dish, dish object when editing
+  const [editingDish, setEditingDish] = useState(null);
   
+  // Dual Image Mode State: 'url' | 'file'
+  const [imageInputMode, setImageInputMode] = useState('url');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   // Collapsible Categories State
   const [collapsedCategories, setCollapsedCategories] = useState({});
 
@@ -97,9 +102,54 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
-  // Open Modal for Create
+  // Handle Supabase Storage Direct File Upload (Approach A)
+  const handleFileUploadToSupabase = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (JPG, PNG, WEBP).');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      // Unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `dishes/${fileName}`;
+
+      // Upload file to Supabase bucket 'menu-images'
+      const { data, error } = await supabase.storage
+        .from('menu-images')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL from Supabase
+      const { data: publicUrlData } = supabase.storage
+        .from('menu-images')
+        .getPublicUrl(filePath);
+
+      // Auto-set generated Cloud URL into dishForm image attribute
+      setDishForm(prev => ({
+        ...prev,
+        image: publicUrlData.publicUrl
+      }));
+    } catch (err) {
+      console.error('Supabase upload error:', err);
+      alert(`Upload failed: ${err.message || 'Ensure "menu-images" public bucket exists in Supabase Storage.'}`);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const openCreateModal = () => {
     setEditingDish(null);
+    setImageInputMode('url');
     setDishForm({
       name: '',
       category: 'Vada Pav',
@@ -111,9 +161,9 @@ export default function AdminDashboard({ onLogout }) {
     setIsModalOpen(true);
   };
 
-  // Open Modal for Edit
   const openEditModal = (dish) => {
     setEditingDish(dish);
+    setImageInputMode(dish.image?.includes('supabase.co') ? 'file' : 'url');
     setDishForm({
       name: dish.name || '',
       category: dish.category || 'Vada Pav',
@@ -125,7 +175,6 @@ export default function AdminDashboard({ onLogout }) {
     setIsModalOpen(true);
   };
 
-  // Submit Create or Edit Form
   const handleDishFormSubmit = async (e) => {
     e.preventDefault();
     if (!dishForm.name || !dishForm.price) {
@@ -140,10 +189,8 @@ export default function AdminDashboard({ onLogout }) {
       };
 
       if (editingDish) {
-        // PUT update existing dish
         await updateMenuItem(editingDish.id, payload);
       } else {
-        // POST create new dish
         await createMenuItem(payload);
       }
 
@@ -191,7 +238,6 @@ export default function AdminDashboard({ onLogout }) {
     ? orders 
     : orders.filter((o) => o.status === filterStatus);
 
-  // Group menu items by category
   const groupedMenuItems = menuItems.reduce((acc, item) => {
     const cat = item.category || 'Other';
     if (!acc[cat]) acc[cat] = [];
@@ -476,7 +522,7 @@ export default function AdminDashboard({ onLogout }) {
           </div>
         )}
 
-        {/* TAB 2: MANAGE MENU (Full Width Grid + Collapsible Categories) */}
+        {/* TAB 2: MANAGE MENU */}
         {activeTab === 'menu' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
@@ -501,7 +547,6 @@ export default function AdminDashboard({ onLogout }) {
 
                   return (
                     <div key={categoryName} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
-                      {/* Accordion Category Header Bar */}
                       <button
                         onClick={() => toggleCategoryAccordion(categoryName)}
                         className="w-full px-5 py-3.5 bg-gray-50 hover:bg-gray-100/80 flex items-center justify-between transition-colors cursor-pointer border-b border-gray-100"
@@ -519,7 +564,6 @@ export default function AdminDashboard({ onLogout }) {
                         </div>
                       </button>
 
-                      {/* Accordion Dish Grid (3 to 4 items per row) */}
                       {!isCollapsed && (
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                           {categoryDishes.map((item) => (
@@ -541,7 +585,6 @@ export default function AdminDashboard({ onLogout }) {
                                       {item.name}
                                     </h3>
                                     
-                                    {/* Action Buttons (Edit & Delete) */}
                                     <div className="flex items-center gap-0.5 flex-shrink-0">
                                       <button
                                         onClick={() => openEditModal(item)}
@@ -570,7 +613,6 @@ export default function AdminDashboard({ onLogout }) {
                                 </div>
                               </div>
 
-                              {/* Availability Toggle */}
                               <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
                                 <span className={`text-[10px] font-bold ${item.is_available ? 'text-emerald-600' : 'text-red-600'}`}>
                                   {item.is_available ? '● Available' : '○ Out of Stock'}
@@ -607,7 +649,6 @@ export default function AdminDashboard({ onLogout }) {
               </div>
             )}
 
-            {/* FLOATING ACTION BUTTON (Levitating Add Dish Button) */}
             <button
               onClick={openCreateModal}
               className="fixed bottom-6 right-6 bg-brand-primary hover:bg-red-700 text-white font-extrabold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer z-50 ring-4 ring-red-100"
@@ -679,15 +720,55 @@ export default function AdminDashboard({ onLogout }) {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/photo-..."
-                  value={dishForm.image}
-                  onChange={(e) => setDishForm({ ...dishForm, image: e.target.value })}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none"
-                />
+              {/* DUAL IMAGE INPUT TAB SELECTION (URL vs FILE UPLOAD) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-gray-700">Dish Image Option</label>
+                  <div className="flex bg-gray-100 p-0.5 rounded-lg text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('url')}
+                      className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                        imageInputMode === 'url' ? 'bg-white text-dark-slate shadow-xs' : 'text-gray-500'
+                      }`}
+                    >
+                      <Link className="w-3 h-3" /> Image URL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageInputMode('file')}
+                      className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                        imageInputMode === 'file' ? 'bg-white text-dark-slate shadow-xs' : 'text-gray-500'
+                      }`}
+                    >
+                      <Upload className="w-3 h-3" /> Upload File
+                    </button>
+                  </div>
+                </div>
+
+                {imageInputMode === 'url' ? (
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/photo-..."
+                    value={dishForm.image}
+                    onChange={(e) => setDishForm({ ...dishForm, image: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none"
+                  />
+                ) : (
+                  <div className="space-y-1.5">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUploadToSupabase}
+                      disabled={uploadingImage}
+                      className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20 cursor-pointer"
+                    />
+                    {uploadingImage && <p className="text-[10px] text-brand-primary font-bold animate-pulse">Uploading to Supabase Cloud Storage...</p>}
+                    {dishForm.image && !uploadingImage && (
+                      <p className="text-[10px] text-emerald-600 font-bold truncate">Uploaded: {dishForm.image}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -724,7 +805,7 @@ export default function AdminDashboard({ onLogout }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingDish}
+                  disabled={submittingDish || uploadingImage}
                   className={`px-5 py-2.5 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 ${
                     editingDish ? 'bg-blue-600 hover:bg-blue-700' : 'bg-brand-primary hover:bg-red-700'
                   }`}
@@ -740,6 +821,7 @@ export default function AdminDashboard({ onLogout }) {
     </div>
   );
 }
+
 
 
 
