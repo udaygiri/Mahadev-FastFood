@@ -49,3 +49,33 @@ class OrderResponse(OrderCreate):
 
     class Config:
         from_attributes = True  # Allows Pydantic to read SQLAlchemy ORM models directly
+
+
+# 7. Menu Item Schemas
+class MenuItemBase(BaseModel):
+    name: str = Field(..., example="Special Cheese Pizza")
+    category: str = Field(..., example="Pizza")
+    price: float = Field(..., gt=0, example=299.0)
+    image: Optional[str] = Field(default=None, example="https://images.unsplash.com/photo-...")
+    description: Optional[str] = Field(default=None, example="Loaded with fresh mozzarella cheese.")
+    is_available: bool = Field(default=True, example=True)
+
+
+class MenuItemCreate(MenuItemBase):
+    pass
+
+
+class MenuItemUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = Field(default=None, gt=0)
+    image: Optional[str] = None
+    description: Optional[str] = None
+    is_available: Optional[bool] = None
+
+
+class MenuItemResponse(MenuItemBase):
+    id: int
+
+    class Config:
+        from_attributes = True

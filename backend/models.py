@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, Float, ForeignKey, Column, DateTime
+from sqlalchemy import String, Integer, Float, ForeignKey, Column, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -42,3 +42,14 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     # Relationship back to Order
     order = relationship("Order", back_populates="items")
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False, index=True)
+    category = Column(String, nullable=False, index=True)
+    price = Column(Float, nullable=False)
+    image = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    is_available = Column(Boolean, default=True, nullable=False)

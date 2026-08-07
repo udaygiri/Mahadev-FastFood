@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
-from routes import orders
+from routes import orders, menu
 
 # Automatically create tables in database (for local dev)
 models.Base.metadata.create_all(bind=engine)
@@ -29,5 +29,7 @@ def read_root():
     return {"message": "Welcome to Mahadev Fast Food API!"}
 
 app.include_router(orders.router)
+app.include_router(menu.router)
+
 
 

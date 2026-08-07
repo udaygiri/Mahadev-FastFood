@@ -1,17 +1,37 @@
-import React, { useState } from 'react';
-import { MOCK_MENU, CATEGORIES } from '../mockData';
-import { Search, ShoppingBag, Plus, Minus, Star, MapPin, ShieldCheck, Utensils, X, Leaf, LogOut, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { getMenuItems } from '../services/api';
+import { Search, ShoppingBag, Plus, Minus, Star, MapPin, ShieldCheck, Utensils, X, Leaf, LogOut, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoToCheckout }) {
+  const [menuItems, setMenuItems] = useState([]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
 
-  const filteredMenu = MOCK_MENU.filter(item => {
+  // Fetch live menu items on mount
+  useEffect(() => {
+    const fetchLiveMenu = async () => {
+      try {
+        const data = await getMenuItems(true); // true = fetch only available items
+        setMenuItems(data);
+      } catch (err) {
+        console.error('Failed to load menu items:', err);
+      } finally {
+        setLoadingMenu(false);
+      }
+    };
+    fetchLiveMenu();
+  }, []);
+
+  // Compute unique categories dynamically from database items
+  const categoriesList = ['All', ...new Set(menuItems.map(item => item.category).filter(Boolean))];
+
+  const filteredMenu = menuItems.filter(item => {
     const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                          (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
@@ -32,17 +52,18 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
   };
 
   const totalItemsCount = Object.values(cart).reduce((sum, count) => sum + count, 0);
+  
   const totalPrice = Object.entries(cart).reduce((sum, [id, count]) => {
-    const item = MOCK_MENU.find(m => m.id === id);
+    const item = menuItems.find(m => String(m.id) === String(id));
     return sum + (item ? item.price * count : 0);
   }, 0);
 
   const cartItemsList = Object.entries(cart).map(([id, count]) => {
-    const item = MOCK_MENU.find(m => m.id === id);
+    const item = menuItems.find(m => String(m.id) === String(id));
     return {
-      id: item.id,
-      name: item.name,
-      price: item.price,
+      id: String(item?.id || id),
+      name: item?.name || 'Item',
+      price: item?.price || 0,
       quantity: count
     };
   });
@@ -96,7 +117,7 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              placeholder="Search pizza, burger, fries, drinks..." 
+              placeholder="Search pizza, burger, vada pav..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-2 bg-gray-100 rounded-xl text-sm border border-transparent focus:border-brand-primary focus:bg-white transition-all outline-none"
@@ -125,16 +146,16 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           
-          {/* Left / Center Column: Menu Browsing (Spans 8 cols on desktop) */}
+          {/* Left / Center Column: Menu Browsing */}
           <div className="lg:col-span-8 space-y-5">
             
-            {/* Desktop-Only Category Bar (Hidden on Mobile & Tablet) */}
+            {/* Desktop Category Bar */}
             <div className="hidden lg:flex bg-white p-4 rounded-2xl shadow-xs border border-gray-200/80 items-center justify-between gap-3">
               <div className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1 max-w-full">
-                {CATEGORIES.map(cat => (
+                {categoriesList.map(cat => (
                   <button 
                     key={cat}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                       selectedCategory === cat 
                         ? 'bg-brand-primary text-white shadow-sm' 
                         : 'bg-gray-100 text-muted-gray hover:bg-gray-200'
@@ -147,30 +168,39 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
               </div>
             </div>
 
-            {/* Menu Grid */}
+            {/* Menu Grid Container */}
             <div className="bg-white p-3.5 sm:p-6 rounded-2xl shadow-xs border border-gray-200/80 pb-24 lg:pb-6">
               <h2 className="text-base sm:text-xl font-extrabold text-dark-slate mb-4 sm:mb-6 flex items-center justify-between">
                 <span>{selectedCategory === 'All' ? 'Full Menu' : selectedCategory}</span>
                 <span className="text-xs font-normal text-muted-gray">{filteredMenu.length} items available</span>
               </h2>
               
-              {/* Menu Grid / Empty Search State */}
-              {filteredMenu.length === 0 ? (
+              {/* Loading State */}
+              {loadingMenu ? (
+                <div className="py-20 text-center space-y-3">
+                  <RefreshCw className="w-8 h-8 text-brand-primary animate-spin mx-auto" />
+                  <p className="text-xs font-bold text-gray-500">Fetching live menu from kitchen...</p>
+                </div>
+              ) : filteredMenu.length === 0 ? (
                 <div className="py-16 text-center space-y-3">
                   <div className="w-16 h-16 bg-red-50 text-brand-primary rounded-full flex items-center justify-center mx-auto">
-                    <Search className="w-8 h-8" />
+                    <AlertCircle className="w-8 h-8" />
                   </div>
-                  <h3 className="font-extrabold text-base text-dark-slate">No dishes found for "{searchQuery}"</h3>
-                  <p className="text-xs text-muted-gray">Try checking your spelling or searching for another delicious item</p>
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedCategory('All');
-                    }}
-                    className="bg-brand-primary text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs hover:bg-red-700 transition-all cursor-pointer"
-                  >
-                    Clear Search & Filters
-                  </button>
+                  <h3 className="font-extrabold text-base text-dark-slate">No available items found</h3>
+                  <p className="text-xs text-muted-gray">
+                    {searchQuery ? `No dishes match your search "${searchQuery}"` : 'The kitchen menu is currently being updated. Please check back shortly.'}
+                  </p>
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedCategory('All');
+                      }}
+                      className="bg-brand-primary text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs hover:bg-red-700 transition-all cursor-pointer"
+                    >
+                      Clear Search & Filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -185,21 +215,25 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
                               <span className="w-3.5 h-3.5 rounded-sm border border-brand-accent flex items-center justify-center p-[1px] shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
                               </span>
-                              {item.isBestseller && (
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 flex items-center gap-0.5 shrink-0">
-                                  <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> Bestseller
-                                </span>
-                              )}
+                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+                                {item.category}
+                              </span>
                             </div>
                             <h3 className="text-sm sm:text-base font-bold text-dark-slate leading-snug truncate">{item.name}</h3>
                             <div className="text-xs sm:text-sm font-extrabold text-dark-slate mt-0.5">₹{item.price}</div>
-                            <p className="text-xs text-muted-gray mt-1 line-clamp-2 leading-relaxed">{item.description}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-gray mt-1 line-clamp-2 leading-relaxed">{item.description}</p>
+                            )}
                           </div>
                         </div>
 
                         {/* Dish Image & Add Button */}
                         <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
-                          <img src={item.image} alt={item.name} className="w-full h-18 sm:h-20 object-cover rounded-xl shadow-xs" />
+                          <img 
+                            src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300'} 
+                            alt={item.name} 
+                            className="w-full h-18 sm:h-20 object-cover rounded-xl shadow-xs" 
+                          />
                           
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
                             {qty === 0 ? (
@@ -356,10 +390,10 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
             </div>
 
             <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-              {CATEGORIES.map(cat => {
+              {categoriesList.map(cat => {
                 const count = cat === 'All' 
-                  ? MOCK_MENU.length 
-                  : MOCK_MENU.filter(m => m.category === cat).length;
+                  ? menuItems.length 
+                  : menuItems.filter(m => m.category === cat).length;
                 return (
                   <button 
                     key={cat}

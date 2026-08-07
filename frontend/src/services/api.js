@@ -46,4 +46,45 @@ export const deleteOrder = async (orderId) => {
   return response.data;
 };
 
+// --- MENU API ENDPOINTS ---
+
+/**
+ * Fetch menu items (pass availableOnly = true for customer view)
+ * @param {boolean} availableOnly 
+ */
+export const getMenuItems = async (availableOnly = false) => {
+  const response = await api.get(`/menu`, {
+    params: { available_only: availableOnly }
+  });
+  return response.data;
+};
+
+/**
+ * Create a new menu item (Admin only)
+ * @param {Object} itemData 
+ */
+export const createMenuItem = async (itemData) => {
+  const response = await api.post('/menu', itemData);
+  return response.data;
+};
+
+/**
+ * Update existing menu item / toggle availability (Admin only)
+ * @param {number} id 
+ * @param {Object} updateData 
+ */
+export const updateMenuItem = async (id, updateData) => {
+  const response = await api.put(`/menu/${id}`, updateData);
+  return response.data;
+};
+
+/**
+ * Delete a menu item (Admin only)
+ * @param {number} id 
+ */
+export const deleteMenuItem = async (id) => {
+  const response = await api.delete(`/menu/${id}`);
+  return response.data;
+};
+
 export default api;
