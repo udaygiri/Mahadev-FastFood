@@ -14,6 +14,8 @@ class Order(Base):
     customer_name = Column(String, nullable=False)
     customer_phone = Column(String, nullable=False)
     customer_address = Column(String, nullable=False)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
 
     # Order Meta & Payment
     cooking_instructions = Column(String, nullable=True)

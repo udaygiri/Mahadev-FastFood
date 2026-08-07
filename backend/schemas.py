@@ -8,6 +8,8 @@ class CustomerSchema(BaseModel):
     name: str = Field(..., example="User Name")
     phone: str = Field(..., example="9876543210")
     address: str = Field(..., example="Junagadh, Gujarat")
+    lat: Optional[float] = Field(default=None, example=20.9204)
+    lng: Optional[float] = Field(default=None, example=70.3604)
 
 
 # 2. Nested Order Item Schema
@@ -37,6 +39,8 @@ class OrderCreate(BaseModel):
     status: str = Field(default="Placed", example="Placed")
     driver_name: Optional[str] = Field(default=None, example="Ramesh")
     driver_phone: Optional[str] = Field(default=None, example="9876543210")
+    lat: Optional[float] = Field(default=None, example=20.9204)
+    lng: Optional[float] = Field(default=None, example=70.3604)
 
 
 # 5. Status Update Request Payload Schema (PATCH request)

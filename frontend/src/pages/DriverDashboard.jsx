@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Truck, CheckCircle2, CookingPot, Phone, MapPin, Navigation, User, LogOut, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Truck, CheckCircle2, CookingPot, Phone, MapPin, Navigation, User, LogOut, RefreshCw, AlertCircle, X, Play } from 'lucide-react';
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import { supabase } from '../services/supabaseClient';
+import DriverNavigationMap from '../components/DriverNavigationMap';
 
 export default function DriverDashboard() {
   const [driverInfo, setDriverInfo] = useState(() => {
@@ -14,6 +15,13 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [activeTab, setActiveTab] = useState('available'); // 'available' | 'my_deliveries'
+
+  // Navigation & GPS Tracking state
+  const [navigatingOrder, setNavigatingOrder] = useState(null);
+  const [driverPos, setDriverPos] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const watchIdRef = useRef(null);
+  const channelRef = useRef(null);
 
   // Input states for Login
   const [inputName, setInputName] = useState(driverInfo.name || '');
@@ -94,6 +102,9 @@ export default function DriverDashboard() {
     setUpdatingId(orderId);
     try {
       await updateOrderStatus(orderId, 'Delivered');
+      if (navigatingOrder?.orderId === orderId) {
+        handleStopDriving();
+      }
       await loadOrders();
     } catch (err) {
       alert('Failed to mark order as delivered.');
@@ -102,10 +113,68 @@ export default function DriverDashboard() {
     }
   };
 
-  // Filter orders: Ready for pickup vs Picked up by this specific logged in driver
+  // 🗺️ Navigation Handlers
+  const handleOpenNavigationMap = (order) => {
+    setNavigatingOrder(order);
+    setIsNavigating(false);
+  };
+
+  const handleStartDriving = () => {
+    if (!navigatingOrder) return;
+    setIsNavigating(true);
+
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    // Set up Supabase Realtime broadcast channel
+    const channel = supabase.channel(`order-tracking-${navigatingOrder.orderId}`);
+    channelRef.current = channel;
+
+    // Start watching position
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setDriverPos(coords);
+
+        // Broadcast GPS location to customer's OrderSuccess screen
+        channel.send({
+          type: 'broadcast',
+          event: 'driver-location',
+          payload: { orderId: navigatingOrder.orderId, ...coords },
+        });
+      },
+      (err) => console.error('GPS Watch error:', err),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+
+    watchIdRef.current = watchId;
+  };
+
+  const handleStopDriving = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    setNavigatingOrder(null);
+    setDriverPos(null);
+    setIsNavigating(false);
+  };
+
+  // Filter orders: Ready for pickup vs Picked up by driver
   const availableOrders = orders.filter((o) => o.status === 'Preparing' || o.status === 'Placed');
   const myActiveDeliveries = orders.filter(
-    (o) => o.status === 'Out for Delivery' && (o.driver_phone === driverInfo.phone || o.driver_name === driverInfo.name)
+    (o) =>
+      o.status === 'Out for Delivery' &&
+      (!o.driver_phone || o.driver_phone === driverInfo.phone || o.driver_name === driverInfo.name)
   );
 
   if (!isLoggedIn) {
@@ -325,6 +394,15 @@ export default function DriverDashboard() {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-gray-100">
+                        {/* 🛵 START DRIVING & ROUTE MAP BUTTON */}
+                        <button
+                          onClick={() => handleOpenNavigationMap(order)}
+                          className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <Navigation className="w-4 h-4 fill-white" />
+                          <span>Start Driving (Live In-App Route Map)</span>
+                        </button>
+
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer?.address || '')}`}
                           target="_blank"
@@ -332,7 +410,7 @@ export default function DriverDashboard() {
                           className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-dark-slate rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Open Directions in Google Maps</span>
+                          <span>Open in External Google Maps</span>
                         </a>
 
                         <button
@@ -352,6 +430,111 @@ export default function DriverDashboard() {
           </div>
         )}
       </main>
+
+      {/* 🗺️ IN-APP LIVE NAVIGATION MODAL */}
+      {navigatingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex flex-col backdrop-blur-xs">
+          {/* Modal Top Navigation Bar */}
+          <div className="bg-dark-slate text-white px-4 py-3.5 flex items-center justify-between shadow-md border-b border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center font-bold">
+                🛵
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                  <span>Live Delivery Route</span>
+                  <span className="font-mono text-purple-400">#{navigatingOrder.orderId}</span>
+                </h3>
+                <p className="text-xs text-gray-300 font-medium">
+                  Deliver to: <span className="font-bold text-white">{navigatingOrder.customer?.name}</span> ({navigatingOrder.customer?.address})
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleStopDriving}
+              className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Navigation Action Banner */}
+          <div className="bg-purple-900/90 text-white px-4 py-2.5 flex items-center justify-between border-b border-purple-800 text-xs">
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${isNavigating ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+              <span className="font-bold">
+                {isNavigating
+                  ? 'Navigation Active - Broadcasting GPS coordinates live'
+                  : 'Route plotted from Shop to Customer address'}
+              </span>
+            </div>
+
+            {!isNavigating ? (
+              <button
+                onClick={handleStartDriving}
+                className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>Start Live GPS Navigation</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsNavigating(false)}
+                className="px-3 py-1 bg-red-500/80 hover:bg-red-600 text-white font-bold text-[11px] rounded-lg"
+              >
+                Pause GPS
+              </button>
+            )}
+          </div>
+
+          {/* Leaflet Map Area */}
+          <div className="flex-1 relative z-0">
+            {(() => {
+              const effectiveLat = navigatingOrder.customer?.lat || navigatingOrder.lat;
+              const effectiveLng = navigatingOrder.customer?.lng || navigatingOrder.lng;
+
+              if (!effectiveLat || !effectiveLng) {
+                return (
+                  <div className="h-full bg-red-950/90 text-white flex flex-col items-center justify-center p-6 text-center space-y-4">
+                    <div className="w-14 h-14 bg-red-800 text-red-100 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg border border-red-700">
+                      ⚠️
+                    </div>
+                    <div className="space-y-1 max-w-md">
+                      <h4 className="text-lg font-extrabold text-red-200">Customer Location Coordinates Missing</h4>
+                      <p className="text-xs text-red-300 font-medium leading-relaxed">
+                        This customer did not provide map pin coordinates (`lat` / `lng`). Cannot plot live turn-by-turn road route without exact GPS coordinates.
+                      </p>
+                    </div>
+                    <div className="bg-red-900/60 p-3 rounded-xl border border-red-800 text-xs font-mono text-red-200 w-full max-w-md text-left space-y-1">
+                      <p><span className="text-red-400 font-bold">Address Text:</span> {navigatingOrder.customer?.address || 'N/A'}</p>
+                      <p><span className="text-red-400 font-bold">Customer Name:</span> {navigatingOrder.customer?.name || 'N/A'}</p>
+                      <p><span className="text-red-400 font-bold">Phone:</span> {navigatingOrder.customer?.phone || 'N/A'}</p>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigatingOrder.customer?.address || '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer flex items-center gap-2"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      <span>Search Address in External Google Maps</span>
+                    </a>
+                  </div>
+                );
+              }
+
+              return (
+                <DriverNavigationMap
+                  customerLat={effectiveLat}
+                  customerLng={effectiveLng}
+                  driverPos={driverPos}
+                />
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

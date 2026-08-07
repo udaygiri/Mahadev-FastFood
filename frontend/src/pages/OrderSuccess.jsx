@@ -16,6 +16,13 @@ const homeIcon = L.icon({
   iconAnchor: [12, 41],
 });
 
+const bikeIcon = L.divIcon({
+  className: 'custom-bike-marker',
+  html: `<div style="background-color:#9333ea; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid white; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-size:18px;">🛵</div>`,
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
 // Exact Shop Coordinates (Mahadev Fast Food)
 const KITCHEN_LOCATION = { lat: 20.92044479, lng: 70.3604289 };
 
@@ -23,6 +30,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
   const [currentStep, setCurrentStep] = useState(1); // 1: Placed, 2: Preparing, 3: Out for Delivery, 4: Delivered
   const [progressPercent, setProgressPercent] = useState(25);
   const [liveOrder, setLiveOrder] = useState(orderDetails);
+  const [driverLocation, setDriverLocation] = useState(null);
 
   const updateOrderStatusInStorage = (updatedOrder) => {
     if (!updatedOrder?.orderId) return;
@@ -73,8 +81,23 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
       )
       .subscribe();
 
+    // 🛵 Subscribe to Live Broadcast channel for Driver Location
+    const trackingChannel = supabase
+      .channel(`order-tracking-${orderDetails.orderId}`)
+      .on('broadcast', { event: 'driver-location' }, (payload) => {
+        if (payload.payload?.lat && payload.payload?.lng) {
+          console.log('⚡ Driver Live GPS Ping Received:', payload.payload);
+          setDriverLocation({
+            lat: payload.payload.lat,
+            lng: payload.payload.lng,
+          });
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(trackingChannel);
     };
   }, [orderDetails?.orderId]);
 
@@ -116,12 +139,43 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
 
   const activeOrder = liveOrder || orderDetails;
 
-  // Customer Coordinates (Fallback to default if not in customer details)
+  // Customer Coordinates (Strict read - NO fake defaults)
   const savedCustomer = JSON.parse(localStorage.getItem('mahadev_customer_details') || '{}');
-  const customerLocation = {
-    lat: savedCustomer.lat || 20.9300,
-    lng: savedCustomer.lng || 70.3700
-  };
+  const customerLat = activeOrder.customer?.lat || savedCustomer.lat;
+  const customerLng = activeOrder.customer?.lng || savedCustomer.lng;
+  const hasValidCustomerLocation = Boolean(customerLat && customerLng);
+
+  // OSRM Road Route state for customer view
+  const [routePolyline, setRoutePolyline] = useState([]);
+
+  // Fetch actual OSRM road route
+  useEffect(() => {
+    if (!customerLat || !customerLng) return;
+
+    const startLat = driverLocation ? driverLocation.lat : KITCHEN_LOCATION.lat;
+    const startLng = driverLocation ? driverLocation.lng : KITCHEN_LOCATION.lng;
+
+    const fetchRoadRoute = async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${customerLng},${customerLat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.routes && data.routes[0]) {
+          const coords = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+          setRoutePolyline(coords);
+        }
+      } catch (err) {
+        console.error('Failed to fetch customer route:', err);
+        setRoutePolyline([
+          [startLat, startLng],
+          [customerLat, customerLng],
+        ]);
+      }
+    };
+
+    fetchRoadRoute();
+  }, [customerLat, customerLng, driverLocation]);
 
   const trackingSteps = [
     { step: 1, title: 'Order Placed', desc: 'Received by kitchen', time: 'Just now' },
@@ -229,7 +283,7 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
           </div>
         )}
 
-        {/* EMBEDDED LIVE DELIVERY TRACKING MAP (Static View) */}
+        {/* EMBEDDED LIVE DELIVERY TRACKING MAP */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs space-y-2">
           <div className="px-4 pt-3 flex items-center justify-between">
             <span className="font-bold text-xs text-dark-slate flex items-center gap-1.5">
@@ -240,52 +294,69 @@ export default function OrderSuccess({ orderDetails, onUpdateOrderStatus, onBack
             </span>
           </div>
 
-          <div className="h-56 w-full relative z-0">
-            <MapContainer
-              center={[(KITCHEN_LOCATION.lat + customerLocation.lat) / 2, (KITCHEN_LOCATION.lng + customerLocation.lng) / 2]}
-              zoom={13}
-              scrollWheelZoom={false}
-              dragging={false}
-              touchZoom={false}
-              doubleClickZoom={false}
-              zoomControl={false}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                attribution='&copy; OpenStreetMap'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
-              {/* Kitchen Marker */}
-              <Marker position={[KITCHEN_LOCATION.lat, KITCHEN_LOCATION.lng]} icon={homeIcon}>
-                <Popup>
-                  <div className="text-xs font-bold text-center">
-                    🍔 Mahadev Fast Food Kitchen
-                  </div>
-                </Popup>
-              </Marker>
+          {!hasValidCustomerLocation ? (
+            <div className="p-6 text-center space-y-2 bg-amber-50/70 border-t border-amber-100">
+              <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto font-bold text-lg">
+                ⚠️
+              </div>
+              <h4 className="text-xs font-extrabold text-amber-900">Map Coordinates Missing for Order</h4>
+              <p className="text-[11px] text-amber-700 max-w-xs mx-auto">
+                No GPS map coordinates (`lat` / `lng`) were selected for this delivery address.
+              </p>
+            </div>
+          ) : (
+            <div className="h-56 w-full relative z-0">
+              <MapContainer
+                center={[(KITCHEN_LOCATION.lat + customerLat) / 2, (KITCHEN_LOCATION.lng + customerLng) / 2]}
+                zoom={13}
+                scrollWheelZoom={false}
+                dragging={false}
+                touchZoom={false}
+                doubleClickZoom={false}
+                zoomControl={false}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                
+                {/* Kitchen Marker */}
+                <Marker position={[KITCHEN_LOCATION.lat, KITCHEN_LOCATION.lng]} icon={homeIcon}>
+                  <Popup>
+                    <div className="text-xs font-bold text-center">
+                      🍔 Mahadev Fast Food Kitchen
+                    </div>
+                  </Popup>
+                </Marker>
 
-              {/* Customer House Marker */}
-              <Marker position={[customerLocation.lat, customerLocation.lng]} icon={homeIcon}>
-                <Popup>
-                  <div className="text-xs font-bold text-center">
-                    🏡 Your Delivery Destination
-                  </div>
-                </Popup>
-              </Marker>
+                {/* Customer House Marker */}
+                <Marker position={[customerLat, customerLng]} icon={homeIcon}>
+                  <Popup>
+                    <div className="text-xs font-bold text-center">
+                      🏡 Your Delivery Destination
+                    </div>
+                  </Popup>
+                </Marker>
 
-              {/* Delivery Route Polyline Path */}
-              <Polyline
-                positions={[
-                  [KITCHEN_LOCATION.lat, KITCHEN_LOCATION.lng],
-                  [customerLocation.lat, customerLocation.lng]
-                ]}
-                color="#e11d48"
-                weight={4}
-                dashArray="6, 8"
-              />
-            </MapContainer>
-          </div>
+                {/* Driver Live Moving Bike Marker */}
+                {driverLocation && (
+                  <Marker position={[driverLocation.lat, driverLocation.lng]} icon={bikeIcon}>
+                    <Popup>
+                      <div className="text-xs font-bold text-center">
+                        🛵 Driver Live Location
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
+                {/* Delivery Road Route Polyline Path */}
+                {routePolyline.length > 0 && (
+                  <Polyline positions={routePolyline} color="#7e22ce" weight={3} opacity={0.9} />
+                )}
+              </MapContainer>
+            </div>
+          )}
         </div>
 
         {/* Live Timeline Tracker */}

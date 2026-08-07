@@ -24,6 +24,8 @@ export default function Checkout({ user, cartItems, onBackToMenu, onOrderSuccess
         name: user?.name,
         phone: user?.phone,
         address: user?.address,
+        lat: user?.lat,
+        lng: user?.lng,
       },
       items: cartItems.map((item) => ({
         id: String(item.id),

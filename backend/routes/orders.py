@@ -22,12 +22,18 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
             detail=f"Order ID '{order_data.orderId}' already exists."
         )
 
+    # Extract lat/lng from customer object or top-level payload
+    lat_val = order_data.lat or (order_data.customer.lat if order_data.customer else None)
+    lng_val = order_data.lng or (order_data.customer.lng if order_data.customer else None)
+
     # Map Pydantic payload to SQLAlchemy Order Model
     new_order = models.Order(
         order_id=order_data.orderId,
         customer_name=order_data.customer.name,
         customer_phone=order_data.customer.phone,
         customer_address=order_data.customer.address,
+        lat=lat_val,
+        lng=lng_val,
         cooking_instructions=order_data.cookingInstructions,
         payment_method=order_data.paymentMethod,
         status=order_data.status,
@@ -62,8 +68,12 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
         customer=schemas.CustomerSchema(
             name=new_order.customer_name,
             phone=new_order.customer_phone,
-            address=new_order.customer_address
+            address=new_order.customer_address,
+            lat=new_order.lat,
+            lng=new_order.lng
         ),
+        lat=new_order.lat,
+        lng=new_order.lng,
         items=[
             schemas.OrderItemSchema(
                 id=item.item_id,
@@ -105,8 +115,12 @@ def get_all_orders(phone: Optional[str] = Query(None, description="Optional cust
                 customer=schemas.CustomerSchema(
                     name=order.customer_name,
                     phone=order.customer_phone,
-                    address=order.customer_address
+                    address=order.customer_address,
+                    lat=order.lat,
+                    lng=order.lng
                 ),
+                lat=order.lat,
+                lng=order.lng,
                 items=[
                     schemas.OrderItemSchema(
                         id=item.item_id,
