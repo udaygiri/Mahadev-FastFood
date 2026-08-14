@@ -12,16 +12,14 @@ app = FastAPI(debug=True,
               description="Backend API for Mahadev Fast Food ordering system",
               version="1.0.0")
 
-# Configure CORS for Frontend React integration
-origins = [
-    "http://localhost:5173",  # React Vite dev server
-    "http://localhost:3000",  # Alternative React dev port
-]
-
-app.add_middleware(CORSMiddleware,
-                   allow_origins=origins,
-                   allow_headers=["*"],  # Allows GET, POST, PUT, DELETE, etc.
-                   allow_methods=["*"]) # Allows all request headers
+# Configure CORS for Frontend React & Mobile Integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Root Health Check Route
 @app.get("/")

@@ -216,7 +216,13 @@ export default function AdminDashboard({ onLogout }) {
       setIsModalOpen(false);
       await loadMenu();
     } catch (err) {
-      alert(editingDish ? 'Failed to update dish' : 'Failed to create new dish');
+      console.error('Dish submit error:', err);
+      const detail = err.response?.data?.detail;
+      let msg = editingDish ? 'Failed to update dish' : 'Failed to create new dish';
+      if (typeof detail === 'string') msg = detail;
+      else if (Array.isArray(detail)) msg = detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('\n');
+      else if (err.message) msg = err.message;
+      alert(msg);
     } finally {
       setSubmittingDish(false);
     }
