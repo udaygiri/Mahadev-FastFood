@@ -10,6 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app-launcher": "^8.0.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/geolocation": "^8.2.2",
     "@supabase/supabase-js": "^2.112.2",
     "axios": "^1.18.1",
     "leaflet": "^1.9.4",
@@ -20,6 +25,7 @@
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

@@ -14,8 +14,9 @@ import { fetchOrders } from './services/api';
 import { supabase } from './services/supabaseClient';
 
 export default function App() {
+  const isCapacitorNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform();
   const isAdminRoute = window.location.pathname === '/admin';
-  const isDriverRoute = window.location.pathname === '/driver';
+  const isDriverRoute = window.location.pathname === '/driver' || isCapacitorNative;
 
   const [adminSession, setAdminSession] = useState(null);
   const [checkingAdminAuth, setCheckingAdminAuth] = useState(isAdminRoute);
