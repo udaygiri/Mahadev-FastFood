@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link } from 'lucide-react';
-import { fetchOrders, updateOrderStatus, deleteOrder, getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem } from '../services/api';
+import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link, Settings } from 'lucide-react';
+import { fetchOrders, updateOrderStatus, deleteOrder, getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getCategories, createCategory, deleteCategory, getSettings, updateSettings } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import { playOrderNotificationSound } from '../utils/audioNotification';
 
@@ -17,7 +17,18 @@ const CATEGORIES = [
 ];
 
 export default function AdminDashboard({ onLogout }) {
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'menu'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'menu' | 'settings'
+  
+  // Settings & Categories State
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [appSettings, setAppSettingsState] = useState({
+    platform_charge: 5.0,
+    delivery_fee: 0.0,
+    is_store_open: true
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
   
   // Orders State
   const [orders, setOrders] = useState([]);
@@ -48,6 +59,25 @@ export default function AdminDashboard({ onLogout }) {
     is_available: true
   });
 
+  const loadCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategoriesList(data);
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    }
+  };
+
+  const loadAppSettings = async () => {
+    try {
+      const data = await getSettings();
+      setAppSettingsState(data);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+    }
+  };
+
+
   const loadAllOrders = async () => {
     try {
       const data = await fetchOrders();
@@ -74,6 +104,8 @@ export default function AdminDashboard({ onLogout }) {
   useEffect(() => {
     loadAllOrders();
     loadMenu();
+    loadCategories();
+    loadAppSettings();
 
     // ⚡ REALTIME WEBSOCKET SUBSCRIPTION (Zero Polling)
     const ordersSubscription = supabase
@@ -247,6 +279,45 @@ export default function AdminDashboard({ onLogout }) {
     }
   };
 
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    setSavingCategory(true);
+    try {
+      await createCategory(newCategoryName.trim());
+      setNewCategoryName('');
+      await loadCategories();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to add category');
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete category "${name}"?`)) return;
+    try {
+      await deleteCategory(id);
+      await loadCategories();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete category');
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    try {
+      await updateSettings(appSettings);
+      alert('Settings updated successfully!');
+    } catch (err) {
+      alert('Failed to update settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+
   const toggleCategoryAccordion = (category) => {
     setCollapsedCategories(prev => ({
       ...prev,
@@ -348,6 +419,18 @@ export default function AdminDashboard({ onLogout }) {
             >
               <UtensilsCrossed className="w-4 h-4 text-emerald-400" />
               <span>Manage Menu ({menuItems.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-dark-slate text-white shadow-xs'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Settings className="w-4 h-4 text-amber-400" />
+              <span>Settings</span>
             </button>
           </div>
         </div>
@@ -683,6 +766,164 @@ export default function AdminDashboard({ onLogout }) {
             </button>
           </div>
         )}
+
+        {/* TAB 3: ADMIN SETTINGS & CATEGORY MANAGEMENT */}
+        {activeTab === 'settings' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* CARD 1: CATEGORY MANAGEMENT */}
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-200 space-y-4">
+              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
+                    <UtensilsCrossed className="w-4 h-4 text-emerald-500" />
+                    <span>Food Categories</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Add or remove categories shown on menu & dish creation form
+                  </p>
+                </div>
+                <span className="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                  {categoriesList.length} Total
+                </span>
+              </div>
+
+              {/* Add Category Form */}
+              <form onSubmit={handleAddCategory} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="New Category Name..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-brand-primary font-medium"
+                />
+                <button
+                  type="submit"
+                  disabled={savingCategory || !newCategoryName.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{savingCategory ? 'Adding...' : 'Add Category'}</span>
+                </button>
+              </form>
+
+              {/* Categories List */}
+              <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto pr-1">
+                {categoriesList.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-4 text-center">No categories found.</p>
+                ) : (
+                  categoriesList.map((cat) => (
+                    <div key={cat.id} className="py-2.5 flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-gray-800">{cat.name}</span>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* CARD 2: PLATFORM CHARGES & STORE STATUS */}
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-200 space-y-4">
+              <div className="border-b border-gray-100 pb-3">
+                <h2 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-amber-500" />
+                  <span>Charges & Store Controls</span>
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Set customer checkout fees and store availability status
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Platform Charge (₹ per order)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={appSettings.platform_charge}
+                    onChange={(e) =>
+                      setAppSettingsState({
+                        ...appSettings,
+                        platform_charge: parseFloat(e.target.value) || 0
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-brand-primary font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Delivery Fee (₹ per order)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={appSettings.delivery_fee}
+                    onChange={(e) =>
+                      setAppSettingsState({
+                        ...appSettings,
+                        delivery_fee: parseFloat(e.target.value) || 0
+                      })
+                    }
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-brand-primary font-bold"
+                  />
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-xl flex items-center justify-between border border-gray-200">
+                  <div>
+                    <span className="block text-xs font-bold text-gray-800">Online Store Status</span>
+                    <span className="text-[10px] text-gray-500 font-medium">
+                      {appSettings.is_store_open ? 'Store is open & taking orders' : 'Store is closed for online orders'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAppSettingsState({
+                        ...appSettings,
+                        is_store_open: !appSettings.is_store_open
+                      })
+                    }
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      appSettings.is_store_open
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}
+                  >
+                    {appSettings.is_store_open ? (
+                      <>
+                        <ToggleRight className="w-4 h-4 text-emerald-600" />
+                        <span>OPEN</span>
+                      </>
+                    ) : (
+                      <>
+                        <ToggleLeft className="w-4 h-4 text-red-600" />
+                        <span>CLOSED</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="w-full py-2.5 bg-dark-slate hover:bg-gray-800 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {savingSettings ? 'Saving Settings...' : 'Save Charges & Settings'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* POPUP MODAL FOR ADD / EDIT DISH FORM */}
@@ -725,8 +966,8 @@ export default function AdminDashboard({ onLogout }) {
                     onChange={(e) => setDishForm({ ...dishForm, category: e.target.value })}
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none bg-white font-medium"
                   >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
+                    {(categoriesList.length > 0 ? categoriesList.map(c => c.name) : CATEGORIES).map((catName) => (
+                      <option key={catName} value={catName}>{catName}</option>
                     ))}
                   </select>
                 </div>

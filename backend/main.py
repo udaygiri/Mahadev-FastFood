@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
-from routes import orders, menu
+from routes import orders, menu, settings
 
 # Automatically create tables in database (for local dev)
 models.Base.metadata.create_all(bind=engine)
@@ -28,6 +28,8 @@ def read_root():
 
 app.include_router(orders.router)
 app.include_router(menu.router)
+app.include_router(settings.router)
+
 
 
 

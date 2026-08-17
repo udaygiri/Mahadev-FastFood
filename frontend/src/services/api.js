@@ -102,4 +102,50 @@ export const deleteMenuItem = async (id) => {
   return response.data;
 };
 
+// --- SETTINGS & CATEGORIES API ENDPOINTS ---
+
+/**
+ * Fetch list of category objects from backend
+ */
+export const getCategories = async () => {
+  const response = await api.get('/categories');
+  return response.data;
+};
+
+/**
+ * Add a new category (Admin only)
+ * @param {string} name 
+ */
+export const createCategory = async (name) => {
+  const response = await api.post('/categories', { name });
+  return response.data;
+};
+
+/**
+ * Delete a category by ID (Admin only)
+ * @param {number} id 
+ */
+export const deleteCategory = async (id) => {
+  const response = await api.delete(`/categories/${id}`);
+  return response.data;
+};
+
+/**
+ * Fetch app settings (platform_charge, delivery_fee, is_store_open)
+ */
+export const getSettings = async () => {
+  const response = await api.get('/settings');
+  return response.data;
+};
+
+/**
+ * Update app settings (Admin only)
+ * @param {Object} settingsData 
+ */
+export const updateSettings = async (settingsData) => {
+  const response = await api.put('/settings', settingsData);
+  return response.data;
+};
+
 export default api;
+

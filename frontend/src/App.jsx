@@ -9,7 +9,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import DriverDashboard from './pages/DriverDashboard';
 import BottomNav from './components/BottomNav';
-import InstallPwaBanner from './components/InstallPwaBanner';
 import { fetchOrders } from './services/api';
 import { supabase } from './services/supabaseClient';
 
@@ -211,9 +210,6 @@ export default function App() {
           />
         )}
       </div>
-
-      {/* PWA Floating Install Prompt */}
-      <InstallPwaBanner />
 
       {/* Global 2-Tab Bottom Navigation Bar */}
       {currentView !== 'checkout' && (
