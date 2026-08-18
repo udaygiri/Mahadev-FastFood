@@ -71,6 +71,10 @@ export default function App() {
     const loadOrders = () => {
       fetchOrders(user.phone)
         .then((data) => {
+          if (!Array.isArray(data)) {
+            setOrdersList([]);
+            return;
+          }
           setOrdersList(data);
           if (data.length > 0) {
             setSelectedOrder((prev) => {
@@ -80,7 +84,10 @@ export default function App() {
             });
           }
         })
-        .catch((err) => console.error('Failed to fetch orders:', err));
+        .catch((err) => {
+          console.error('Failed to fetch orders:', err);
+          setOrdersList([]);
+        });
     };
 
     loadOrders();

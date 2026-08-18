@@ -100,50 +100,54 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
 # 2. Get Orders (GET /api/orders?phone=...)
 @router.get("/", response_model=List[schemas.OrderResponse])
 def get_all_orders(phone: Optional[str] = Query(None, description="Optional customer phone number to filter orders"), db: Session = Depends(get_db)):
-    query = db.query(models.Order)
-    if phone:
-        query = query.filter(models.Order.customer_phone == phone)
-    
-    orders = query.order_by(models.Order.created_at.desc()).all()
-    
-    response_list = []
-    for order in orders:
-        response_list.append(
-            schemas.OrderResponse(
-                id=order.id,
-                orderId=order.order_id,
-                customer=schemas.CustomerSchema(
-                    name=order.customer_name,
-                    phone=order.customer_phone,
-                    address=order.customer_address,
+    try:
+        query = db.query(models.Order)
+        if phone:
+            query = query.filter(models.Order.customer_phone == phone)
+        
+        orders = query.order_by(models.Order.created_at.desc()).all()
+        
+        response_list = []
+        for order in orders:
+            response_list.append(
+                schemas.OrderResponse(
+                    id=order.id,
+                    orderId=order.order_id,
+                    customer=schemas.CustomerSchema(
+                        name=order.customer_name,
+                        phone=order.customer_phone,
+                        address=order.customer_address,
+                        lat=order.lat,
+                        lng=order.lng
+                    ),
                     lat=order.lat,
-                    lng=order.lng
-                ),
-                lat=order.lat,
-                lng=order.lng,
-                items=[
-                    schemas.OrderItemSchema(
-                        id=item.item_id,
-                        name=item.name,
-                        price=item.price,
-                        quantity=item.quantity
-                    ) for item in order.items
-                ],
-                cookingInstructions=order.cooking_instructions,
-                paymentMethod=order.payment_method,
-                billBreakdown=schemas.BillBreakdownSchema(
-                    itemTotal=order.item_total,
-                    deliveryFee=order.delivery_fee,
-                    platformCharge=order.platform_charge,
-                    grandTotal=order.grand_total
-                ),
-                status=order.status,
-                driver_name=order.driver_name,
-                driver_phone=order.driver_phone,
-                created_at=order.created_at
+                    lng=order.lng,
+                    items=[
+                        schemas.OrderItemSchema(
+                            id=item.item_id,
+                            name=item.name,
+                            price=item.price,
+                            quantity=item.quantity
+                        ) for item in order.items
+                    ],
+                    cookingInstructions=order.cooking_instructions,
+                    paymentMethod=order.payment_method,
+                    billBreakdown=schemas.BillBreakdownSchema(
+                        itemTotal=order.item_total,
+                        deliveryFee=order.delivery_fee,
+                        platformCharge=order.platform_charge,
+                        grandTotal=order.grand_total
+                    ),
+                    status=order.status,
+                    driver_name=order.driver_name,
+                    driver_phone=order.driver_phone,
+                    created_at=order.created_at
+                )
             )
-        )
-    return response_list
+        return response_list
+    except Exception as e:
+        print(f"Error fetching orders: {e}")
+        return []
 
 
 # 3. Update Order Status (PATCH /api/orders/{order_id}/status)
