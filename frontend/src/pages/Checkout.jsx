@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, CreditCard, Banknote, ShieldCheck, ShoppingBag, ArrowRight, CheckCircle2, MessageSquare } from 'lucide-react';
-import { createOrder } from '../services/api';
+import { createOrder, getSettings } from '../services/api';
 
 export default function Checkout({ user, cartItems, onBackToMenu, onOrderSuccess }) {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [cookingInstructions, setCookingInstructions] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [settings, setSettings] = useState({ platform_charge: 5.0, delivery_fee: 0.0 });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await getSettings();
+        setSettings(data);
+      } catch (err) {
+        console.error('Failed to load settings in Checkout:', err);
+      }
+    };
+    loadSettings();
+  }, []);
 
   // Calculate bill breakdown
   const itemTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = itemTotal > 299 ? 0 : 25; // Free delivery above ₹299
-  const platformCharge = 5;
+  const deliveryFee = settings.delivery_fee ?? 0.0;
+  const platformCharge = settings.platform_charge ?? 5.0;
   const grandTotal = itemTotal + deliveryFee + platformCharge;
 
   const handlePlaceOrder = async () => {

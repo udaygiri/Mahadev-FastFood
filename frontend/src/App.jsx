@@ -9,13 +9,13 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import DriverDashboard from './pages/DriverDashboard';
 import BottomNav from './components/BottomNav';
-import InstallPwaBanner from './components/InstallPwaBanner';
 import { fetchOrders } from './services/api';
 import { supabase } from './services/supabaseClient';
 
 export default function App() {
+  const isCapacitorNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform();
   const isAdminRoute = window.location.pathname === '/admin';
-  const isDriverRoute = window.location.pathname === '/driver';
+  const isDriverRoute = window.location.pathname === '/driver' || isCapacitorNative;
 
   const [adminSession, setAdminSession] = useState(null);
   const [checkingAdminAuth, setCheckingAdminAuth] = useState(isAdminRoute);
@@ -210,9 +210,6 @@ export default function App() {
           />
         )}
       </div>
-
-      {/* PWA Floating Install Prompt */}
-      <InstallPwaBanner />
 
       {/* Global 2-Tab Bottom Navigation Bar */}
       {currentView !== 'checkout' && (

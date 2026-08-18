@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  if (typeof window !== 'undefined' && window.location.hostname) {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
     return `http://${window.location.hostname}:8000/api`;
   }
   return 'http://localhost:8000/api';
@@ -11,6 +14,7 @@ const api = axios.create({
   baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', 
   },
 });
 
@@ -98,4 +102,50 @@ export const deleteMenuItem = async (id) => {
   return response.data;
 };
 
+// --- SETTINGS & CATEGORIES API ENDPOINTS ---
+
+/**
+ * Fetch list of category objects from backend
+ */
+export const getCategories = async () => {
+  const response = await api.get('/categories');
+  return response.data;
+};
+
+/**
+ * Add a new category (Admin only)
+ * @param {string} name 
+ */
+export const createCategory = async (name) => {
+  const response = await api.post('/categories', { name });
+  return response.data;
+};
+
+/**
+ * Delete a category by ID (Admin only)
+ * @param {number} id 
+ */
+export const deleteCategory = async (id) => {
+  const response = await api.delete(`/categories/${id}`);
+  return response.data;
+};
+
+/**
+ * Fetch app settings (platform_charge, delivery_fee, is_store_open)
+ */
+export const getSettings = async () => {
+  const response = await api.get('/settings');
+  return response.data;
+};
+
+/**
+ * Update app settings (Admin only)
+ * @param {Object} settingsData 
+ */
+export const updateSettings = async (settingsData) => {
+  const response = await api.put('/settings', settingsData);
+  return response.data;
+};
+
 export default api;
+

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getMenuItems } from '../services/api';
+import { getMenuItems, getSettings } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 import { Search, ShoppingBag, Plus, Minus, Star, MapPin, ShieldCheck, Utensils, X, Leaf, LogOut, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoToCheckout }) {
@@ -9,20 +10,44 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
   const [cart, setCart] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
 
-  // Fetch live menu items on mount
+  // Fetch live menu items and settings on mount + Realtime Subscription
   useEffect(() => {
-    const fetchLiveMenu = async () => {
+    const fetchLiveMenuAndSettings = async () => {
       try {
-        const data = await getMenuItems(true); // true = fetch only available items
-        setMenuItems(data);
+        const [menuData, settingsData] = await Promise.all([
+          getMenuItems(true),
+          getSettings()
+        ]);
+        setMenuItems(menuData);
+        if (settingsData && typeof settingsData.is_store_open === 'boolean') {
+          setIsStoreOpen(settingsData.is_store_open);
+        }
       } catch (err) {
-        console.error('Failed to load menu items:', err);
+        console.error('Failed to load menu or settings:', err);
       } finally {
         setLoadingMenu(false);
       }
     };
-    fetchLiveMenu();
+
+    fetchLiveMenuAndSettings();
+
+    // ⚡ Supabase Realtime Listener for instant store status updates
+    const settingsSubscription = supabase
+      .channel('app-settings-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        () => {
+          fetchLiveMenuAndSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(settingsSubscription);
+    };
   }, []);
 
   // Compute unique categories dynamically from database items
@@ -69,6 +94,10 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
   });
 
   const handleCheckoutClick = () => {
+    if (!isStoreOpen) {
+      alert('The store is currently closed for online orders. Please try again later.');
+      return;
+    }
     if (onGoToCheckout) {
       onGoToCheckout(cartItemsList);
     }
@@ -134,9 +163,15 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <span className="bg-emerald-50 text-brand-accent font-bold text-xs px-3 py-1.5 rounded-full border border-emerald-100 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Kitchen Accepting Orders
-            </span>
+            {isStoreOpen ? (
+              <span className="bg-emerald-50 text-brand-accent font-bold text-xs px-3 py-1.5 rounded-full border border-emerald-100 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Kitchen Accepting Orders
+              </span>
+            ) : (
+              <span className="bg-red-50 text-red-700 font-bold text-xs px-3 py-1.5 rounded-full border border-red-100 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span> Store Currently Closed
+              </span>
+            )}
           </div>
 
         </div>

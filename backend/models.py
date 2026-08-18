@@ -59,3 +59,15 @@ class MenuItem(Base):
     image = Column(String, nullable=True)
     description = Column(String, nullable=True)
     is_available = Column(Boolean, default=True, nullable=False)
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, unique=True, nullable=False, index=True)
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String, nullable=False)

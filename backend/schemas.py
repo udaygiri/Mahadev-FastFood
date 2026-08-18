@@ -87,3 +87,26 @@ class MenuItemResponse(MenuItemBase):
 
     class Config:
         from_attributes = True
+
+
+# --- Category Schemas ---
+class CategoryCreate(BaseModel):
+    name: str
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+# --- App Settings Schemas ---
+class AppSettingsUpdate(BaseModel):
+    platform_charge: float
+    delivery_fee: float = 0.0
+    is_store_open: bool = True
+
+class AppSettingsResponse(BaseModel):
+    platform_charge: float
+    delivery_fee: float
+    is_store_open: bool
