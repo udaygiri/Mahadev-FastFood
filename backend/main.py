@@ -4,13 +4,12 @@ import models
 from database import engine
 from routes import orders, menu, settings
 
-# Automatically create tables in database (for local dev)
-models.Base.metadata.create_all(bind=engine)
-
-app = FastAPI(debug=True,
-              title="Mahadev Fast Food",
-              description="Backend API for Mahadev Fast Food ordering system",
-              version="1.0.0")
+app = FastAPI(
+    debug=True,
+    title="Mahadev Fast Food",
+    description="Backend API for Mahadev Fast Food ordering system",
+    version="1.0.0"
+)
 
 # Configure CORS for Frontend React & Mobile Integration
 import os
@@ -25,6 +24,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Safely create tables on startup
+@app.on_event("startup")
+def startup_db_client():
+    try:
+        models.Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"DB Startup Warning: {e}")
 
 # Root Health Check Route
 @app.get("/")
