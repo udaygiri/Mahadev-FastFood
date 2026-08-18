@@ -20,12 +20,13 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
           getMenuItems(true),
           getSettings()
         ]);
-        setMenuItems(menuData);
+        setMenuItems(Array.isArray(menuData) ? menuData : []);
         if (settingsData && typeof settingsData.is_store_open === 'boolean') {
           setIsStoreOpen(settingsData.is_store_open);
         }
       } catch (err) {
         console.error('Failed to load menu or settings:', err);
+        setMenuItems([]);
       } finally {
         setLoadingMenu(false);
       }
@@ -51,7 +52,8 @@ export default function Home({ user, activeOrder, onTrackOrder, onLogout, onGoTo
   }, []);
 
   // Compute unique categories dynamically from database items
-  const categoriesList = ['All', ...new Set(menuItems.map(item => item.category).filter(Boolean))];
+  const safeMenuItems = Array.isArray(menuItems) ? menuItems : [];
+  const categoriesList = ['All', ...new Set(safeMenuItems.map(item => item.category).filter(Boolean))];
 
   const filteredMenu = menuItems.filter(item => {
     const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
