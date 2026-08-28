@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link, Settings } from 'lucide-react';
+import { ShoppingBag, Clock, CheckCircle2, CookingPot, Truck, DollarSign, RefreshCw, Phone, MapPin, AlertCircle, Trash2, LogOut, UtensilsCrossed, Plus, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Edit3, Upload, Link, Settings, Loader2 } from 'lucide-react';
 import { fetchOrders, updateOrderStatus, deleteOrder, getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getCategories, createCategory, deleteCategory, getSettings, updateSettings } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import { playOrderNotificationSound } from '../utils/audioNotification';
@@ -15,6 +15,36 @@ const CATEGORIES = [
   'Desserts',
   'Combos'
 ];
+
+// Skeleton Loader for Order Cards
+function OrderSkeletonCard() {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs space-y-3.5 animate-pulse">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+        <div className="space-y-1.5">
+          <div className="h-4 w-24 bg-gray-200 rounded-md"></div>
+          <div className="h-3 w-14 bg-gray-100 rounded-md"></div>
+        </div>
+        <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
+      </div>
+
+      <div className="bg-gray-50 p-2.5 rounded-xl space-y-2 border border-gray-100">
+        <div className="h-3.5 w-32 bg-gray-200 rounded-md"></div>
+        <div className="h-3 w-48 bg-gray-100 rounded-md"></div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="h-3.5 w-full bg-gray-200 rounded-md"></div>
+        <div className="h-3 w-3/4 bg-gray-100 rounded-md"></div>
+      </div>
+
+      <div className="pt-2 flex items-center justify-between border-t border-gray-100">
+        <div className="h-5 w-20 bg-gray-200 rounded-md"></div>
+        <div className="h-8 w-28 bg-gray-200 rounded-xl"></div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'menu' | 'settings'
@@ -33,6 +63,7 @@ export default function AdminDashboard({ onLogout }) {
   // Orders State
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('All');
 
@@ -79,11 +110,14 @@ export default function AdminDashboard({ onLogout }) {
 
 
   const loadAllOrders = async () => {
+    setLoadingOrders(true);
+    setOrdersError(null);
     try {
       const data = await fetchOrders();
       setOrders(data);
     } catch (err) {
       console.error('Failed to load admin orders:', err);
+      setOrdersError('Internet problem or server unreachable. Please check your connection.');
     } finally {
       setLoadingOrders(false);
     }
@@ -341,16 +375,7 @@ export default function AdminDashboard({ onLogout }) {
     return acc;
   }, {});
 
-  if (loadingOrders && loadingMenu) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="flex items-center gap-2 text-brand-primary font-bold">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          <span>Loading Kitchen Dashboard...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans text-dark-slate pb-20 relative">
@@ -497,7 +522,30 @@ export default function AdminDashboard({ onLogout }) {
             </div>
 
             {/* Orders Feed */}
-            {displayedOrders.length === 0 ? (
+            {loadingOrders ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <OrderSkeletonCard key={index} />
+                ))}
+              </div>
+            ) : ordersError ? (
+              <div className="bg-white rounded-2xl border border-red-100 p-8 text-center space-y-3 shadow-xs max-w-md mx-auto my-6">
+                <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-dark-slate text-base">Network Error</h3>
+                  <p className="text-xs text-gray-500 mt-1">{ordersError}</p>
+                </div>
+                <button
+                  onClick={loadAllOrders}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-xl hover:bg-brand-primary/90 transition-all cursor-pointer shadow-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Connection</span>
+                </button>
+              </div>
+            ) : displayedOrders.length === 0 ? (
               <div className="bg-white rounded-2xl p-12 text-center border border-gray-200 space-y-2">
                 <AlertCircle className="w-10 h-10 text-gray-300 mx-auto" />
                 <h3 className="text-base font-bold text-dark-slate">No {filterStatus} orders found</h3>
@@ -511,7 +559,7 @@ export default function AdminDashboard({ onLogout }) {
                   return (
                     <div
                       key={order.orderId}
-                      className={`bg-white rounded-2xl border p-4 shadow-xs space-y-3 flex flex-col justify-between transition-all ${
+                      className={`relative bg-white rounded-2xl border p-4 shadow-xs space-y-3 flex flex-col justify-between transition-all ${
                         order.status === 'Placed' 
                           ? 'border-amber-400 ring-2 ring-amber-100' 
                           : order.status === 'Preparing'
@@ -521,6 +569,16 @@ export default function AdminDashboard({ onLogout }) {
                           : 'border-gray-200 opacity-80'
                       }`}
                     >
+                      {/* Deleting / Updating Loading Overlay */}
+                      {isUpdating && (
+                        <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-2xl animate-pulse">
+                          <div className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-full border border-red-200 text-xs font-bold shadow-xs">
+                            <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                            <span>Deleting order...</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-3">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
                           <div>
@@ -547,9 +605,13 @@ export default function AdminDashboard({ onLogout }) {
                               disabled={isUpdating}
                               onClick={() => handleDeleteOrder(order.orderId)}
                               title="Delete Order"
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isUpdating ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </div>
                         </div>
