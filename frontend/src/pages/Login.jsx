@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, User, Utensils, ArrowRight, Leaf, Map } from 'lucide-react';
+import { MapPin, Phone, User, Utensils, ArrowRight, Leaf, Map, Navigation, CheckCircle2, Loader2 } from 'lucide-react';
 import LocationPickerModal from '../components/LocationPickerModal';
 
 export default function Login({ onLoginSuccess }) {
@@ -7,12 +7,56 @@ export default function Login({ onLoginSuccess }) {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [gpsLocation, setGpsLocation] = useState(null);
+  const [isLocationCaptured, setIsLocationCaptured] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [error, setError] = useState('');
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser. Please use "Select on Map".');
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setError('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const coords = { lat, lng };
+
+        setGpsLocation(coords);
+        setIsLocationCaptured(true);
+
+        // Reverse geocode to get human-readable street address
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            setAddress(data.display_name);
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      (err) => {
+        console.error("Location error:", err);
+        setIsDetectingLocation(false);
+        setError('Unable to detect location automatically. Please enable location permissions or click "Select on Map".');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleSaveLocationFromMap = ({ lat, lng, address: fetchedAddress }) => {
     setGpsLocation({ lat, lng });
     setAddress(fetchedAddress);
+    setIsLocationCaptured(true);
+    setError('');
   };
 
   const handleSubmit = (e) => {
@@ -22,7 +66,13 @@ export default function Login({ onLoginSuccess }) {
     if (!name.trim()) return setError('Please enter your full name.');
     if (!phone.trim()) return setError('Please enter your mobile phone number.');
     if (!phoneRegex.test(phone.trim())) return setError('Please enter a valid 10-digit mobile number.');
-    if (!address.trim()) return setError('Please select your delivery address from the map or enter manually.');
+    
+    // STRICT GPS LOCATION REQUIREMENT
+    if (!gpsLocation || !isLocationCaptured) {
+      return setError('Location Required: Please click "Use My Current Location" or "Select on Map" to capture your exact coordinates.');
+    }
+
+    if (!address.trim()) return setError('Please enter or verify your delivery address.');
 
     setError('');
 
@@ -30,8 +80,8 @@ export default function Login({ onLoginSuccess }) {
       name: name.trim(),
       phone: phone.trim(),
       address: address.trim(),
-      lat: gpsLocation?.lat || 20.92044479,
-      lng: gpsLocation?.lng || 70.3604289,
+      lat: gpsLocation.lat,
+      lng: gpsLocation.lng,
     };
 
     localStorage.setItem('mahadev_customer_details', JSON.stringify(userDetails));
@@ -92,23 +142,62 @@ export default function Login({ onLoginSuccess }) {
             </div>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-dark-slate flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-brand-primary" /> Delivery Address
+                <MapPin className="w-3.5 h-3.5 text-brand-primary" /> Delivery Address *
               </label>
+              
+              {isLocationCaptured ? (
+                <span className="text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Location Verified
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
+                  Required
+                </span>
+              )}
+            </div>
+
+            {/* Quick Action Location Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={isDetectingLocation}
+                className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                  isLocationCaptured 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' 
+                    : 'bg-red-50 border-red-200 text-brand-primary hover:bg-red-100 animate-pulse'
+                }`}
+              >
+                {isDetectingLocation ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-primary" />
+                    <span>Locating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-3.5 h-3.5 fill-current" />
+                    <span>{isLocationCaptured ? 'Update My Location' : 'Use Current Location'}</span>
+                  </>
+                )}
+              </button>
+
               <button 
                 type="button"
                 onClick={() => setIsMapModalOpen(true)}
-                className="text-[11px] font-extrabold text-brand-primary hover:underline flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg border border-red-100 cursor-pointer"
+                className="py-2 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-xs font-bold text-dark-slate flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
-                <Map className="w-3 h-3 text-brand-primary" /> Select on Map
+                <Map className="w-3.5 h-3.5 text-brand-primary" />
+                <span>Select on Map</span>
               </button>
             </div>
+
             <textarea 
               rows="2"
               required
-              placeholder="Select on map or enter House/Flat No, Building, Street..." 
+              placeholder="Click 'Use Current Location' or 'Select on Map' above..." 
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold focus:border-brand-primary focus:bg-white outline-none transition-all resize-none"
@@ -123,7 +212,7 @@ export default function Login({ onLoginSuccess }) {
 
           <button 
             type="submit"
-            className="w-full bg-brand-primary text-white py-3.5 rounded-xl font-bold text-sm shadow-md hover:bg-red-700 active:scale-98 transition-all flex items-center justify-center gap-2"
+            className="w-full bg-brand-primary text-white py-3.5 rounded-xl font-bold text-sm shadow-md hover:bg-red-700 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Explore Menu & Order</span>
             <ArrowRight className="w-4 h-4" />
@@ -142,4 +231,5 @@ export default function Login({ onLoginSuccess }) {
     </div>
   );
 }
+
 
