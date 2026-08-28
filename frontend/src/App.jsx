@@ -4,7 +4,6 @@ import Login from './pages/Login';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import OrdersList from './pages/OrdersList';
-import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import DriverDashboard from './pages/DriverDashboard';
@@ -51,8 +50,8 @@ export default function App() {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'checkout' | 'orders_list' | 'order_details' | 'profile'
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'orders' | 'profile'
+  const [currentView, setCurrentView] = useState('home'); // 'home' | 'checkout' | 'orders_list' | 'order_details'
+  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'orders'
   const [activeCartItems, setActiveCartItems] = useState([]);
   const [ordersList, setOrdersList] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -125,19 +124,12 @@ export default function App() {
     );
   };
 
-  const handleUpdateUser = (updatedDetails) => {
-    setUser(updatedDetails);
-    localStorage.setItem('mahadev_customer_details', JSON.stringify(updatedDetails));
-  };
-
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === 'home' || tab === 'menu') {
       setCurrentView('home');
     } else if (tab === 'orders') {
       setCurrentView('orders_list');
-    } else if (tab === 'profile') {
-      setCurrentView('profile');
     }
     window.scrollTo(0, 0);
   };
@@ -189,20 +181,6 @@ export default function App() {
           />
         )}
 
-        {currentView === 'profile' && (
-          <Profile
-            user={user}
-            onUpdateUser={handleUpdateUser}
-            onLogout={() => {
-              localStorage.removeItem('mahadev_customer_details');
-              setOrdersList([]);
-              setSelectedOrder(null);
-              setUser(null);
-            }}
-            onBackToMenu={handleBackToMenu}
-          />
-        )}
-
         {currentView === 'home' && (
           <Home 
             user={user} 
@@ -217,6 +195,7 @@ export default function App() {
           />
         )}
       </div>
+
 
       {/* Global 2-Tab Bottom Navigation Bar */}
       {currentView !== 'checkout' && (
