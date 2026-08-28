@@ -1,3 +1,0 @@
-com.mahadev.fastfood.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme
