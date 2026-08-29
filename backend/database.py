@@ -10,12 +10,12 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mahadev_fastfood.db")
 
 # 2. Create SQLAlchemy Engine
-# Note: connect_args={"check_same_thread": False} is ONLY needed for SQLite
 engine_kwargs = {}
 if DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
-    engine_kwargs["poolclass"] = NullPool
+    engine_kwargs["pool_pre_ping"] = True
+    engine_kwargs["pool_recycle"] = 300
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 

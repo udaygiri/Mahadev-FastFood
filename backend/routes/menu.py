@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -9,7 +9,8 @@ router = APIRouter(prefix="/api/menu", tags=["Menu Management"])
 
 # 1. GET /api/menu - Get all menu items
 @router.get("", response_model=List[schemas.MenuItemResponse])
-def get_menu_items(available_only: Optional[bool] = False, db: Session = Depends(get_db)):
+def get_menu_items(response: Response, available_only: Optional[bool] = False, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=600"
     query = db.query(models.MenuItem)
     if available_only:
         query = query.filter(models.MenuItem.is_available == True)
